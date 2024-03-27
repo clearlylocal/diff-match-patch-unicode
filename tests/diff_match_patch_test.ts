@@ -1,3 +1,7 @@
+// @ts-nocheck for now
+
+import { diff_match_patch, DIFF_DELETE, DIFF_INSERT, DIFF_EQUAL } from '../diff_match_patch.mjs'
+
 /**
  * Diff Match and Patch -- Test Harness
  * Copyright 2018 The diff-match-patch Authors.
@@ -16,6 +20,28 @@
  * limitations under the License.
  */
 
+// from https://github.com/google/diff-match-patch/blob/62f2e689f498f9c92dbc588c58750addec9b1654/javascript/tests/diff_match_patch_test.html
+
+function assertTrue(msg, actual) {
+  if (typeof actual == 'undefined') {
+    // msg is optional.
+    actual = msg
+    return assertEquals(true, actual);
+  } else {
+    return assertEquals(msg, true, actual);
+  }
+}
+
+function assertEquals(msg, expected, actual) {
+  if (typeof actual == 'undefined') {
+    // msg is optional
+    [expected, actual] = [msg, expected]
+    msg = JSON.stringify({ expected, actual })
+  }
+  if (expected !== actual) {
+    throw new Error(msg)
+  }
+}
 
 // If expected and actual are the equivalent, pass the test.
 function assertEquivalent(msg, expected, actual) {
@@ -31,7 +57,6 @@ function assertEquivalent(msg, expected, actual) {
     return assertEquals(msg, expected, actual);
   }
 }
-
 
 // Are a and b the equivalent? -- Recursive.
 function _equivalent(a, b) {
@@ -79,7 +104,7 @@ var dmp = new diff_match_patch();
 // DIFF TEST FUNCTIONS
 
 
-function testDiffCommonPrefix() {
+Deno.test('DiffCommonPrefix', function testDiffCommonPrefix() {
   // Detect any common prefix.
   // Null case.
   assertEquals(0, dmp.diff_commonPrefix('abc', 'xyz'));
@@ -89,9 +114,9 @@ function testDiffCommonPrefix() {
 
   // Whole case.
   assertEquals(4, dmp.diff_commonPrefix('1234', '1234xyz'));
-}
+})
 
-function testDiffCommonSuffix() {
+Deno.test('DiffCommonSuffix', function testDiffCommonSuffix() {
   // Detect any common suffix.
   // Null case.
   assertEquals(0, dmp.diff_commonSuffix('abc', 'xyz'));
@@ -101,9 +126,9 @@ function testDiffCommonSuffix() {
 
   // Whole case.
   assertEquals(4, dmp.diff_commonSuffix('1234', 'xyz1234'));
-}
+})
 
-function testDiffCommonOverlap() {
+Deno.test('DiffCommonOverlap', function testDiffCommonOverlap() {
   // Detect any suffix/prefix overlap.
   // Null case.
   assertEquals(0, dmp.diff_commonOverlap_('', 'abcd'));
@@ -121,9 +146,9 @@ function testDiffCommonOverlap() {
   // Some overly clever languages (C#) may treat ligatures as equal to their
   // component letters.  E.g. U+FB01 == 'fi'
   assertEquals(0, dmp.diff_commonOverlap_('fi', '\ufb01i'));
-}
+})
 
-function testDiffHalfMatch() {
+Deno.test('DiffHalfMatch', function testDiffHalfMatch() {
   // Detect a halfmatch.
   dmp.Diff_Timeout = 1;
   // No match.
@@ -154,9 +179,9 @@ function testDiffHalfMatch() {
   // Optimal no halfmatch.
   dmp.Diff_Timeout = 0;
   assertEquals(null, dmp.diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'));
-}
+})
 
-function testDiffLinesToChars() {
+Deno.test('DiffLinesToChars', function testDiffLinesToChars() {
   function assertLinesToCharsResultEquals(a, b) {
     assertEquals(a.chars1, b.chars1);
     assertEquals(a.chars2, b.chars2);
@@ -184,9 +209,9 @@ function testDiffLinesToChars() {
   assertEquals(n, chars.length);
   lineList.unshift('');
   assertLinesToCharsResultEquals({chars1: chars, chars2: '', lineArray: lineList}, dmp.diff_linesToChars_(lines, ''));
-}
+})
 
-function testDiffCharsToLines() {
+Deno.test('DiffCharsToLines', function testDiffCharsToLines() {
   // Convert chars up to lines.
   var diffs = [[DIFF_EQUAL, '\x01\x02\x01'], [DIFF_INSERT, '\x02\x01\x02']];
   dmp.diff_charsToLines_(diffs, ['', 'alpha\n', 'beta\n']);
@@ -219,9 +244,9 @@ function testDiffCharsToLines() {
   diffs = [[DIFF_INSERT, results.chars1]];
   dmp.diff_charsToLines_(diffs, results.lineArray);
   assertEquals(chars, diffs[0][1]);
-}
+})
 
-function testDiffCleanupMerge() {
+Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
   // Cleanup a messy diff.
   // Null case.
   var diffs = [];
@@ -292,9 +317,9 @@ function testDiffCleanupMerge() {
   diffs = [[DIFF_EQUAL, ''], [DIFF_INSERT, 'a'], [DIFF_EQUAL, 'b']];
   dmp.diff_cleanupMerge(diffs);
   assertEquivalent([[DIFF_INSERT, 'a'], [DIFF_EQUAL, 'b']], diffs);
-}
+})
 
-function testDiffCleanupSemanticLossless() {
+Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossless() {
   // Slide diffs to match logical boundaries.
   // Null case.
   var diffs = [];
@@ -335,9 +360,9 @@ function testDiffCleanupSemanticLossless() {
   diffs = [[DIFF_EQUAL, 'The xxx. The '], [DIFF_INSERT, 'zzz. The '], [DIFF_EQUAL, 'yyy.']];
   dmp.diff_cleanupSemanticLossless(diffs);
   assertEquivalent([[DIFF_EQUAL, 'The xxx.'], [DIFF_INSERT, ' The zzz.'], [DIFF_EQUAL, ' The yyy.']], diffs);
-}
+})
 
-function testDiffCleanupSemantic() {
+Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
   // Cleanup semantically trivial equalities.
   // Null case.
   var diffs = [];
@@ -393,9 +418,9 @@ function testDiffCleanupSemantic() {
   diffs = [[DIFF_DELETE, 'abcd1212'], [DIFF_INSERT, '1212efghi'], [DIFF_EQUAL, '----'], [DIFF_DELETE, 'A3'], [DIFF_INSERT, '3BC']];
   dmp.diff_cleanupSemantic(diffs);
   assertEquivalent([[DIFF_DELETE, 'abcd'], [DIFF_EQUAL, '1212'], [DIFF_INSERT, 'efghi'], [DIFF_EQUAL, '----'], [DIFF_DELETE, 'A'], [DIFF_EQUAL, '3'], [DIFF_INSERT, 'BC']], diffs);
-}
+})
 
-function testDiffCleanupEfficiency() {
+Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
   // Cleanup operationally trivial equalities.
   dmp.Diff_EditCost = 4;
   // Null case.
@@ -429,23 +454,23 @@ function testDiffCleanupEfficiency() {
   dmp.diff_cleanupEfficiency(diffs);
   assertEquivalent([[DIFF_DELETE, 'abwxyzcd'], [DIFF_INSERT, '12wxyz34']], diffs);
   dmp.Diff_EditCost = 4;
-}
+})
 
-function testDiffPrettyHtml() {
+Deno.test('DiffPrettyHtml', function testDiffPrettyHtml() {
   // Pretty print.
   var diffs = [[DIFF_EQUAL, 'a\n'], [DIFF_DELETE, '<B>b</B>'], [DIFF_INSERT, 'c&d']];
   assertEquals('<span>a&para;<br></span><del style="background:#ffe6e6;">&lt;B&gt;b&lt;/B&gt;</del><ins style="background:#e6ffe6;">c&amp;d</ins>', dmp.diff_prettyHtml(diffs));
-}
+})
 
-function testDiffText() {
+Deno.test('DiffText', function testDiffText() {
   // Compute the source and destination texts.
   var diffs = [[DIFF_EQUAL, 'jump'], [DIFF_DELETE, 's'], [DIFF_INSERT, 'ed'], [DIFF_EQUAL, ' over '], [DIFF_DELETE, 'the'], [DIFF_INSERT, 'a'], [DIFF_EQUAL, ' lazy']];
   assertEquals('jumps over the lazy', dmp.diff_text1(diffs));
 
   assertEquals('jumped over a lazy', dmp.diff_text2(diffs));
-}
+})
 
-function testDiffDelta() {
+Deno.test('DiffDelta', function testDiffDelta() {
   // Convert a diff into delta string.
   var diffs = [[DIFF_EQUAL, 'jump'], [DIFF_DELETE, 's'], [DIFF_INSERT, 'ed'], [DIFF_EQUAL, ' over '], [DIFF_DELETE, 'the'], [DIFF_INSERT, 'a'], [DIFF_EQUAL, ' lazy'], [DIFF_INSERT, 'old dog']];
   var text1 = dmp.diff_text1(diffs);
@@ -514,27 +539,27 @@ function testDiffDelta() {
 
   // Convert delta string into a diff.
   assertEquivalent(diffs, dmp.diff_fromDelta('', delta));
-}
+})
 
-function testDiffXIndex() {
+Deno.test('DiffXIndex', function testDiffXIndex() {
   // Translate a location in text1 to text2.
   // Translation on equality.
   assertEquals(5, dmp.diff_xIndex([[DIFF_DELETE, 'a'], [DIFF_INSERT, '1234'], [DIFF_EQUAL, 'xyz']], 2));
 
   // Translation on deletion.
   assertEquals(1, dmp.diff_xIndex([[DIFF_EQUAL, 'a'], [DIFF_DELETE, '1234'], [DIFF_EQUAL, 'xyz']], 3));
-}
+})
 
-function testDiffLevenshtein() {
+Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
   // Levenshtein with trailing equality.
   assertEquals(4, dmp.diff_levenshtein([[DIFF_DELETE, 'abc'], [DIFF_INSERT, '1234'], [DIFF_EQUAL, 'xyz']]));
   // Levenshtein with leading equality.
   assertEquals(4, dmp.diff_levenshtein([[DIFF_EQUAL, 'xyz'], [DIFF_DELETE, 'abc'], [DIFF_INSERT, '1234']]));
   // Levenshtein with middle equality.
   assertEquals(7, dmp.diff_levenshtein([[DIFF_DELETE, 'abc'], [DIFF_EQUAL, 'xyz'], [DIFF_INSERT, '1234']]));
-}
+})
 
-function testDiffBisect() {
+Deno.test('DiffBisect', function testDiffBisect() {
   // Normal.
   var a = 'cat';
   var b = 'map';
@@ -545,9 +570,9 @@ function testDiffBisect() {
 
   // Timeout.
   assertEquivalent([[DIFF_DELETE, 'cat'], [DIFF_INSERT, 'map']], dmp.diff_bisect_(a, b, 0));
-}
+})
 
-function testDiffMain() {
+Deno.test('DiffMain', function testDiffMain() {
   // Perform a trivial diff.
   // Null case.
   assertEquivalent([], dmp.diff_main('', '', false));
@@ -633,22 +658,22 @@ function testDiffMain() {
   } catch (e) {
     // Exception expected.
   }
-}
+})
 
 
 // MATCH TEST FUNCTIONS
 
 
-function testMatchAlphabet() {
+Deno.test('MatchAlphabet', function testMatchAlphabet() {
   // Initialise the bitmasks for Bitap.
   // Unique.
   assertEquivalent({'a':4, 'b':2, 'c':1}, dmp.match_alphabet_('abc'));
 
   // Duplicates.
   assertEquivalent({'a':37, 'b':18, 'c':8}, dmp.match_alphabet_('abcaba'));
-}
+})
 
-function testMatchBitap() {
+Deno.test('MatchBitap', function testMatchBitap() {
   // Bitap algorithm.
   dmp.Match_Distance = 100;
   dmp.Match_Threshold = 0.5;
@@ -691,9 +716,9 @@ function testMatchBitap() {
 
   dmp.Match_Distance = 1000;  // Loose location.
   assertEquals(0, dmp.match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24));
-}
+})
 
-function testMatchMain() {
+Deno.test('MatchMain', function testMatchMain() {
   // Full match.
   // Shortcut matches.
   assertEquals(0, dmp.match_main('abcdef', 'abcdef', 1000));
@@ -720,13 +745,13 @@ function testMatchMain() {
   } catch (e) {
     // Exception expected.
   }
-}
+})
 
 
 // PATCH TEST FUNCTIONS
 
 
-function testPatchObj() {
+Deno.test('PatchObj', function testPatchObj() {
   // Patch Object.
   var p = new diff_match_patch.patch_obj();
   p.start1 = 20;
@@ -736,9 +761,9 @@ function testPatchObj() {
   p.diffs = [[DIFF_EQUAL, 'jump'], [DIFF_DELETE, 's'], [DIFF_INSERT, 'ed'], [DIFF_EQUAL, ' over '], [DIFF_DELETE, 'the'], [DIFF_INSERT, 'a'], [DIFF_EQUAL, '\nlaz']];
   var strp = p.toString();
   assertEquals('@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n %0Alaz\n', strp);
-}
+})
 
-function testPatchFromText() {
+Deno.test('PatchFromText', function testPatchFromText() {
   assertEquivalent([], dmp.patch_fromText(strp));
 
   var strp = '@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n %0Alaz\n';
@@ -757,9 +782,9 @@ function testPatchFromText() {
   } catch (e) {
     // Exception expected.
   }
-}
+})
 
-function testPatchToText() {
+Deno.test('PatchToText', function testPatchToText() {
   var strp = '@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n  laz\n';
   var p = dmp.patch_fromText(strp);
   assertEquals(strp, dmp.patch_toText(p));
@@ -767,9 +792,9 @@ function testPatchToText() {
   strp = '@@ -1,9 +1,9 @@\n-f\n+F\n oo+fooba\n@@ -7,9 +7,9 @@\n obar\n-,\n+.\n  tes\n';
   p = dmp.patch_fromText(strp);
   assertEquals(strp, dmp.patch_toText(p));
-}
+})
 
-function testPatchAddContext() {
+Deno.test('PatchAddContext', function testPatchAddContext() {
   dmp.Patch_Margin = 4;
   var p = dmp.patch_fromText('@@ -21,4 +21,10 @@\n-jump\n+somersault\n')[0];
   dmp.patch_addContext_(p, 'The quick brown fox jumps over the lazy dog.');
@@ -789,9 +814,9 @@ function testPatchAddContext() {
   p = dmp.patch_fromText('@@ -3 +3,2 @@\n-e\n+at\n')[0];
   dmp.patch_addContext_(p, 'The quick brown fox jumps.  The quick brown fox crashes.');
   assertEquals('@@ -1,27 +1,28 @@\n Th\n-e\n+at\n  quick brown fox jumps. \n', p.toString());
-}
+})
 
-function testPatchMake() {
+Deno.test('PatchMake', function testPatchMake() {
   // Null case.
   var patches = dmp.patch_make('', '');
   assertEquals('', dmp.patch_toText(patches));
@@ -847,9 +872,9 @@ function testPatchMake() {
   } catch (e) {
     // Exception expected.
   }
-}
+})
 
-function testPatchSplitMax() {
+Deno.test('PatchSplitMax', function testPatchSplitMax() {
   // Assumes that dmp.Match_MaxBits is 32.
   var patches = dmp.patch_make('abcdefghijklmnopqrstuvwxyz01234567890', 'XabXcdXefXghXijXklXmnXopXqrXstXuvXwxXyzX01X23X45X67X89X0');
   dmp.patch_splitMax(patches);
@@ -867,9 +892,9 @@ function testPatchSplitMax() {
   patches = dmp.patch_make('abcdefghij , h : 0 , t : 1 abcdefghij , h : 0 , t : 1 abcdefghij , h : 0 , t : 1', 'abcdefghij , h : 1 , t : 1 abcdefghij , h : 1 , t : 1 abcdefghij , h : 0 , t : 1');
   dmp.patch_splitMax(patches);
   assertEquals('@@ -2,32 +2,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n@@ -29,32 +29,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n', dmp.patch_toText(patches));
-}
+})
 
-function testPatchAddPadding() {
+Deno.test('PatchAddPadding', function testPatchAddPadding() {
   // Both edges full.
   var patches = dmp.patch_make('', 'test');
   assertEquals('@@ -0,0 +1,4 @@\n+test\n', dmp.patch_toText(patches));
@@ -887,9 +912,9 @@ function testPatchAddPadding() {
   assertEquals('@@ -1,8 +1,12 @@\n XXXX\n+test\n YYYY\n', dmp.patch_toText(patches));
   dmp.patch_addPadding(patches);
   assertEquals('@@ -5,8 +5,12 @@\n XXXX\n+test\n YYYY\n', dmp.patch_toText(patches));
-}
+})
 
-function testPatchApply() {
+Deno.test('PatchApply', function testPatchApply() {
   dmp.Match_Distance = 1000;
   dmp.Match_Threshold = 0.5;
   dmp.Patch_DeleteThreshold = 0.5;
@@ -963,4 +988,4 @@ function testPatchApply() {
   patches = dmp.patch_make('y', 'y123');
   results = dmp.patch_apply(patches, 'x');
   assertEquivalent(['x123', [true]], results);
-}
+})
