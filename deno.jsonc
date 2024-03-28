@@ -1,9 +1,13 @@
 {
 	"lock": false,
 	"tasks": {
-		"test": "deno test --watch tests"
+		"test": "deno test --doc --watch src tests",
+		"docs": "deno doc --html --name='Diff-Match-Patch Unicode' src/mod.mjs && touch docs/.nojekyll"
 	},
-	"imports": {},
+	"imports": {
+		"std/": "https://deno.land/std@0.211.0/",
+		"diff-match-patch-unicode": "./src/mod.mjs"
+	},
 	"fmt": {
 		"semiColons": false,
 		"useTabs": true,

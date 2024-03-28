@@ -38,14 +38,12 @@ export const DiffOperation = /** @type {const} */ ({
 export const MAX_BMP_CODEPOINT = 0xffff
 export const TWO_THIRDS_OF_MAX_BMP_CODEPOINT = 0xaaaa
 
-/**
- * Class representing one diff tuple.
- * Attempts to look like a two-element array (which is what this used to be).
- */
+/** Diff tuple of [operation, text] */
 export class Diff {
 	/**
-	 * @param {DiffOperation} op Operation, one of: Op.Delete, Op.Insert, Op.Equal.
-	 * @param {string} text Text to be deleted, inserted, or retained.
+	 * @param {DiffOperation} op - One of {@linkcode DiffOperation.Delete}, {@linkcode DiffOperation.Insert}, or
+	 * {@linkcode DiffOperation.Equal}
+	 * @param {string} text - Text to be deleted, inserted, or retained
 	 */
 	constructor(op, text) {
 		this[0] = op
@@ -58,15 +56,8 @@ export class Diff {
 	get text() {
 		return this[1]
 	}
-
-	length = 2
-
-	/**
-	 * Emulate the output of a two-element array.
-	 * @return {string} Diff operation as a string.
-	 */
-	toString() {
-		return this[0] + ',' + this[1]
+	get length() {
+		return 2
 	}
 
 	toJSON() {
@@ -79,13 +70,12 @@ export class Diff {
 	}
 
 	[Symbol.for('Deno.customInspect')]() {
-		return `new Diff(${JSON.stringify([...this]).slice(1, -1)})`
+		return `Diff #${(globalThis.Deno?.inspect([...this], { colors: true }) ?? JSON.stringify(this))}`
 	}
 }
 
 /**
  * Class representing one patch operation.
- * @constructor
  */
 export class Patch {
 	/** @type {Diff[]} */
@@ -145,7 +135,6 @@ export class Patch {
 
 /**
  * Class containing the diff, match and patch methods.
- * @constructor
  */
 export class diff_match_patch {
 	constructor() {
@@ -177,10 +166,10 @@ export class diff_match_patch {
 	 * any common prefix or suffix off the texts before diffing.
 	 * @param {string} text1 Old string to be diffed.
 	 * @param {string} text2 New string to be diffed.
-	 * @param {boolean=} opt_checklines Optional speedup flag. If present and false,
+	 * @param {boolean} [opt_checklines] Optional speedup flag. If present and false,
 	 *     then don't run a line-level diff first to identify the changed areas.
 	 *     Defaults to true, which does a faster, slightly less optimal diff.
-	 * @param {number=} opt_deadline Optional time when the diff should be complete
+	 * @param {number} [opt_deadline] Optional time when the diff should be complete
 	 *     by.  Used internally for recursive calls.  Users should set DiffTimeout
 	 *     instead.
 	 * @return {Diff[]} Array of diff tuples.
@@ -195,11 +184,6 @@ export class diff_match_patch {
 			}
 		}
 		const deadline = opt_deadline
-
-		// Check for null inputs.
-		if (text1 == null || text2 == null) {
-			throw new Error('Null input. (diff_main)')
-		}
 
 		// Check for equality (speedup).
 		if (text1 == text2) {
@@ -1518,11 +1502,6 @@ export class diff_match_patch {
 	 * @return {number} Best match index or -1.
 	 */
 	match_main(text, pattern, loc) {
-		// Check for null inputs.
-		if (text == null || pattern == null || loc == null) {
-			throw new Error('Null input. (match_main)')
-		}
-
 		loc = Math.max(0, Math.min(loc, text.length))
 		if (text == pattern) {
 			// Shortcut (potentially not guaranteed by the algorithm)
