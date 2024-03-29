@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'std/assert/mod.ts'
-import { Diff, DiffMatchPatch, DiffOperation, Patch, segmenters } from '../src/mod.mjs'
+import { Diff, Differ, DiffOperation, Patch, segmenters } from '../src/mod.mjs'
 
 /**
  * Diff Match and Patch -- Test Harness
@@ -19,7 +19,7 @@ import { Diff, DiffMatchPatch, DiffOperation, Patch, segmenters } from '../src/m
  * limitations under the License.
  */
 
-const dmp = new DiffMatchPatch()
+const differ = new Differ()
 
 type DiffLike = Diff | [DiffOperation, string]
 
@@ -35,30 +35,30 @@ function assertDiffsEqual(d1: DiffLike[], d2: DiffLike[]) {
 Deno.test('DiffCommonPrefix', function testDiffCommonPrefix() {
 	// Detect any common prefix.
 	// Null case.
-	assertEquals(0, dmp.diff_commonPrefix('abc', 'xyz'))
+	assertEquals(0, differ.diff_commonPrefix('abc', 'xyz'))
 
 	// Non-null case.
-	assertEquals(4, dmp.diff_commonPrefix('1234abcdef', '1234xyz'))
+	assertEquals(4, differ.diff_commonPrefix('1234abcdef', '1234xyz'))
 
 	// Whole case.
-	assertEquals(4, dmp.diff_commonPrefix('1234', '1234xyz'))
+	assertEquals(4, differ.diff_commonPrefix('1234', '1234xyz'))
 })
 
 Deno.test('DiffCommonSuffix', function testDiffCommonSuffix() {
 	// Detect any common suffix.
 	// Null case.
-	assertEquals(0, dmp.diff_commonSuffix('abc', 'xyz'))
+	assertEquals(0, differ.diff_commonSuffix('abc', 'xyz'))
 
 	// Non-null case.
-	assertEquals(4, dmp.diff_commonSuffix('abcdef1234', 'xyz1234'))
+	assertEquals(4, differ.diff_commonSuffix('abcdef1234', 'xyz1234'))
 
 	// Whole case.
-	assertEquals(4, dmp.diff_commonSuffix('1234', 'xyz1234'))
+	assertEquals(4, differ.diff_commonSuffix('1234', 'xyz1234'))
 })
 
 Deno.test('DiffCommonOverlap', function testDiffCommonOverlap() {
 	// testing private method
-	const diff_commonOverlap_ = dmp['diff_commonOverlap_'].bind(dmp)
+	const diff_commonOverlap_ = differ['diff_commonOverlap_'].bind(differ)
 
 	// Detect any suffix/prefix overlap.
 	// Null case.
@@ -81,10 +81,10 @@ Deno.test('DiffCommonOverlap', function testDiffCommonOverlap() {
 
 Deno.test('DiffHalfMatch', function testDiffHalfMatch() {
 	// testing private method
-	const diff_halfMatch_ = dmp['diff_halfMatch_'].bind(dmp)
+	const diff_halfMatch_ = differ['diff_halfMatch_'].bind(differ)
 
 	// Detect a halfmatch.
-	dmp.Diff_Timeout = 1
+	differ.Diff_Timeout = 1
 	// No match.
 	assertEquals(null, diff_halfMatch_('1234567890', 'abcdef'))
 
@@ -120,13 +120,13 @@ Deno.test('DiffHalfMatch', function testDiffHalfMatch() {
 	assertEquals(['qHillo', 'w', 'x', 'Hulloy', 'HelloHe'], diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
 
 	// Optimal no halfmatch.
-	dmp.Diff_Timeout = 0
+	differ.Diff_Timeout = 0
 	assertEquals(null, diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
 })
 
 Deno.test('DiffLinesToChars', function testDiffLinesToChars() {
 	// testing private method
-	const diff_linesToChars_ = dmp['diff_linesToChars_'].bind(dmp)
+	const diff_linesToChars_ = differ['diff_linesToChars_'].bind(differ)
 
 	function assertLinesToCharsResultEquals(
 		a: ReturnType<typeof diff_linesToChars_>,
@@ -176,8 +176,8 @@ Deno.test('DiffLinesToChars', function testDiffLinesToChars() {
 
 Deno.test('DiffCharsToLines', function testDiffCharsToLines() {
 	// testing private methods
-	const diff_charsToLines_ = dmp['diff_charsToLines_'].bind(dmp)
-	const diff_linesToChars_ = dmp['diff_linesToChars_'].bind(dmp)
+	const diff_charsToLines_ = differ['diff_charsToLines_'].bind(differ)
+	const diff_linesToChars_ = differ['diff_linesToChars_'].bind(differ)
 
 	// Convert chars up to lines.
 	let diffs = makeDiffs([[DiffOperation.Equal, '\x01\x02\x01'], [DiffOperation.Insert, '\x02\x01\x02']])
@@ -221,12 +221,12 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 	// Cleanup a messy diff.
 	// Null case.
 	let diffs: Diff[] = []
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([], diffs)
 
 	// No change case.
 	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'c']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'c']],
 		diffs,
@@ -234,17 +234,17 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 
 	// Merge equalities.
 	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Equal, 'b'], [DiffOperation.Equal, 'c']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Equal, 'abc']], diffs)
 
 	// Merge deletions.
 	diffs = makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Delete, 'c']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abc']], diffs)
 
 	// Merge insertions.
 	diffs = makeDiffs([[DiffOperation.Insert, 'a'], [DiffOperation.Insert, 'b'], [DiffOperation.Insert, 'c']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Insert, 'abc']], diffs)
 
 	// Merge interweave.
@@ -259,7 +259,7 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 			'f',
 		],
 	])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Delete, 'ac'], [DiffOperation.Insert, 'bd'], [DiffOperation.Equal, 'ef']],
 		diffs,
@@ -267,7 +267,7 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 
 	// Prefix and suffix detection.
 	diffs = makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'abc'], [DiffOperation.Delete, 'dc']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'd'], [DiffOperation.Insert, 'b'], [
 			DiffOperation.Equal,
@@ -281,7 +281,7 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 		DiffOperation.Delete,
 		'dc',
 	], [DiffOperation.Equal, 'y']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'xa'], [DiffOperation.Delete, 'd'], [DiffOperation.Insert, 'b'], [
 			DiffOperation.Equal,
@@ -292,12 +292,12 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 
 	// Slide edit left.
 	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Insert, 'ba'], [DiffOperation.Equal, 'c']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'ac']], diffs)
 
 	// Slide edit right.
 	diffs = makeDiffs([[DiffOperation.Equal, 'c'], [DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'a']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Equal, 'ca'], [DiffOperation.Insert, 'ba']], diffs)
 
 	// Slide edit left recursive.
@@ -305,7 +305,7 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 		DiffOperation.Delete,
 		'ac',
 	], [DiffOperation.Equal, 'x']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'acx']], diffs)
 
 	// Slide edit right recursive.
@@ -313,17 +313,17 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 		DiffOperation.Delete,
 		'b',
 	], [DiffOperation.Equal, 'a']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Equal, 'xca'], [DiffOperation.Delete, 'cba']], diffs)
 
 	// Empty merge.
 	diffs = makeDiffs([[DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'c']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'bc']], diffs)
 
 	// Empty equality.
 	diffs = makeDiffs([[DiffOperation.Equal, ''], [DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'b']])
-	dmp.diff_cleanupMerge(diffs)
+	differ.diff_cleanupMerge(diffs)
 	assertDiffsEqual([[DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'b']], diffs)
 })
 
@@ -331,7 +331,7 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 	// Slide diffs to match logical boundaries.
 	// Null case.
 	let diffs: Diff[] = []
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertEquals([], diffs)
 
 	// Blank lines.
@@ -339,7 +339,7 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 		DiffOperation.Equal,
 		'\r\nEEE',
 	]])
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'AAA\r\n\r\n'], [DiffOperation.Insert, 'BBB\r\nDDD\r\n\r\n'], [
 			DiffOperation.Equal,
@@ -353,7 +353,7 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 		DiffOperation.Equal,
 		' EEE',
 	]])
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'AAA\r\n'], [DiffOperation.Insert, 'BBB DDD\r\n'], [
 			DiffOperation.Equal,
@@ -367,7 +367,7 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 		DiffOperation.Equal,
 		'at.',
 	]])
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'The '], [DiffOperation.Insert, 'cow and the '], [
 			DiffOperation.Equal,
@@ -381,7 +381,7 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 		DiffOperation.Equal,
 		'at.',
 	]])
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'The-'], [DiffOperation.Insert, 'cow-and-the-'], [
 			DiffOperation.Equal,
@@ -392,12 +392,12 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 
 	// Hitting the start.
 	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'ax']])
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'aax']], diffs)
 
 	// Hitting the end.
 	diffs = makeDiffs([[DiffOperation.Equal, 'xa'], [DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'a']])
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertDiffsEqual([[DiffOperation.Equal, 'xaa'], [DiffOperation.Delete, 'a']], diffs)
 
 	// Sentence boundaries.
@@ -405,7 +405,7 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 		DiffOperation.Equal,
 		'yyy.',
 	]])
-	dmp.diff_cleanupSemanticLossless(diffs)
+	differ.diff_cleanupSemanticLossless(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'The xxx.'], [DiffOperation.Insert, ' The zzz.'], [
 			DiffOperation.Equal,
@@ -419,7 +419,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 	// Cleanup semantically trivial equalities.
 	// Null case.
 	let diffs: Diff[] = []
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertEquals([], diffs)
 
 	// No elimination #1.
@@ -427,7 +427,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		DiffOperation.Delete,
 		'e',
 	]])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, 'cd'], [DiffOperation.Equal, '12'], [
 			DiffOperation.Delete,
@@ -441,7 +441,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		DiffOperation.Delete,
 		'wxyz',
 	]])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'ABC'], [DiffOperation.Equal, '1234'], [
 			DiffOperation.Delete,
@@ -452,7 +452,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 
 	// Simple elimination.
 	diffs = makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'b'], [DiffOperation.Delete, 'c']])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'b']], diffs)
 
 	// Backpass elimination.
@@ -460,7 +460,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		DiffOperation.Equal,
 		'f',
 	], [DiffOperation.Insert, 'g']])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abcdef'], [DiffOperation.Insert, 'cdfg']], diffs)
 
 	// Multiple eliminations.
@@ -475,7 +475,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		[DiffOperation.Delete, 'B'],
 		[DiffOperation.Insert, '2'],
 	])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'AB_AB'], [DiffOperation.Insert, '1A2_1A2']], diffs)
 
 	// Word boundaries.
@@ -483,7 +483,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		DiffOperation.Equal,
 		'at.',
 	]])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'The '], [DiffOperation.Delete, 'cow and the '], [
 			DiffOperation.Equal,
@@ -494,12 +494,12 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 
 	// No overlap elimination.
 	diffs = makeDiffs([[DiffOperation.Delete, 'abcxx'], [DiffOperation.Insert, 'xxdef']])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abcxx'], [DiffOperation.Insert, 'xxdef']], diffs)
 
 	// Overlap elimination.
 	diffs = makeDiffs([[DiffOperation.Delete, 'abcxxx'], [DiffOperation.Insert, 'xxxdef']])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'xxx'], [DiffOperation.Insert, 'def']],
 		diffs,
@@ -507,7 +507,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 
 	// Reverse overlap elimination.
 	diffs = makeDiffs([[DiffOperation.Delete, 'xxxabc'], [DiffOperation.Insert, 'defxxx']])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Insert, 'def'], [DiffOperation.Equal, 'xxx'], [DiffOperation.Delete, 'abc']],
 		diffs,
@@ -524,7 +524,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		DiffOperation.Insert,
 		'3BC',
 	]])
-	dmp.diff_cleanupSemantic(diffs)
+	differ.diff_cleanupSemantic(diffs)
 	assertDiffsEqual(
 		[
 			[DiffOperation.Delete, 'abcd'],
@@ -541,10 +541,10 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 
 Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 	// Cleanup operationally trivial equalities.
-	dmp.Diff_EditCost = 4
+	differ.Diff_EditCost = 4
 	// Null case.
 	let diffs: Diff[] = []
-	dmp.diff_cleanupEfficiency(diffs)
+	differ.diff_cleanupEfficiency(diffs)
 	assertEquals([], diffs)
 
 	// No elimination.
@@ -552,7 +552,7 @@ Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 		DiffOperation.Delete,
 		'cd',
 	], [DiffOperation.Insert, '34']])
-	dmp.diff_cleanupEfficiency(diffs)
+	differ.diff_cleanupEfficiency(diffs)
 	assertDiffsEqual(
 		[[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
 			DiffOperation.Delete,
@@ -569,7 +569,7 @@ Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 		DiffOperation.Delete,
 		'cd',
 	], [DiffOperation.Insert, '34']])
-	dmp.diff_cleanupEfficiency(diffs)
+	differ.diff_cleanupEfficiency(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abxyzcd'], [DiffOperation.Insert, '12xyz34']], diffs)
 
 	// Three-edit elimination.
@@ -577,7 +577,7 @@ Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 		DiffOperation.Insert,
 		'34',
 	]])
-	dmp.diff_cleanupEfficiency(diffs)
+	differ.diff_cleanupEfficiency(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'xcd'], [DiffOperation.Insert, '12x34']], diffs)
 
 	// Backpass elimination.
@@ -593,18 +593,18 @@ Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 		],
 		[DiffOperation.Insert, '56'],
 	])
-	dmp.diff_cleanupEfficiency(diffs)
+	differ.diff_cleanupEfficiency(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abxyzcd'], [DiffOperation.Insert, '12xy34z56']], diffs)
 
 	// High cost elimination.
-	dmp.Diff_EditCost = 5
+	differ.Diff_EditCost = 5
 	diffs = makeDiffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
 		DiffOperation.Delete,
 		'cd',
 	], [DiffOperation.Insert, '34']])
-	dmp.diff_cleanupEfficiency(diffs)
+	differ.diff_cleanupEfficiency(diffs)
 	assertDiffsEqual([[DiffOperation.Delete, 'abwxyzcd'], [DiffOperation.Insert, '12wxyz34']], diffs)
-	dmp.Diff_EditCost = 4
+	differ.Diff_EditCost = 4
 })
 
 Deno.test('DiffPrettyHtml', function testDiffPrettyHtml() {
@@ -615,7 +615,7 @@ Deno.test('DiffPrettyHtml', function testDiffPrettyHtml() {
 	]])
 	assertEquals(
 		'<span>a&para;<br></span><del style="background:#ffe6e6;">&lt;B&gt;b&lt;/B&gt;</del><ins style="background:#e6ffe6;">c&amp;d</ins>',
-		dmp.diff_prettyHtml(diffs),
+		differ.diff_prettyHtml(diffs),
 	)
 })
 
@@ -630,9 +630,9 @@ Deno.test('DiffText', function testDiffText() {
 		[DiffOperation.Insert, 'a'],
 		[DiffOperation.Equal, ' lazy'],
 	])
-	assertEquals('jumps over the lazy', dmp.diff_text1(diffs))
+	assertEquals('jumps over the lazy', differ.diff_text1(diffs))
 
-	assertEquals('jumped over a lazy', dmp.diff_text2(diffs))
+	assertEquals('jumped over a lazy', differ.diff_text2(diffs))
 })
 
 Deno.test('DiffDelta', function testDiffDelta() {
@@ -647,18 +647,18 @@ Deno.test('DiffDelta', function testDiffDelta() {
 		[DiffOperation.Equal, ' lazy'],
 		[DiffOperation.Insert, 'old dog'],
 	])
-	let text1 = dmp.diff_text1(diffs)
+	let text1 = differ.diff_text1(diffs)
 	assertEquals('jumps over the lazy', text1)
 
-	let delta = dmp.diff_toDelta(diffs)
+	let delta = differ.diff_toDelta(diffs)
 	assertEquals('=4\t-1\t+ed\t=6\t-3\t+a\t=5\t+old dog', delta)
 
 	// Convert delta string into a diff.
-	assertEquals(diffs, dmp.diff_fromDelta(text1, delta))
+	assertEquals(diffs, differ.diff_fromDelta(text1, delta))
 
 	// Generates error (19 != 20).
 	try {
-		dmp.diff_fromDelta(text1 + 'x', delta)
+		differ.diff_fromDelta(text1 + 'x', delta)
 		assertEquals(Error, null)
 	} catch (_e) {
 		// Exception expected.
@@ -666,7 +666,7 @@ Deno.test('DiffDelta', function testDiffDelta() {
 
 	// Generates error (19 != 18).
 	try {
-		dmp.diff_fromDelta(text1.substring(1), delta)
+		differ.diff_fromDelta(text1.substring(1), delta)
 		assertEquals(Error, null)
 	} catch (_e) {
 		// Exception expected.
@@ -674,7 +674,7 @@ Deno.test('DiffDelta', function testDiffDelta() {
 
 	// Generates error (%c3%xy invalid Unicode).
 	try {
-		dmp.diff_fromDelta('', '+%c3%xy')
+		differ.diff_fromDelta('', '+%c3%xy')
 		assertEquals(Error, null)
 	} catch (_e) {
 		// Exception expected.
@@ -685,25 +685,25 @@ Deno.test('DiffDelta', function testDiffDelta() {
 		DiffOperation.Insert,
 		'\u0682 \x02 \\ |',
 	]])
-	text1 = dmp.diff_text1(diffs)
+	text1 = differ.diff_text1(diffs)
 	assertEquals('\u0680 \x00 \t %\u0681 \x01 \n ^', text1)
 
-	delta = dmp.diff_toDelta(diffs)
+	delta = differ.diff_toDelta(diffs)
 	assertEquals('=7\t-7\t+%DA%82 %02 %5C %7C', delta)
 
 	// Convert delta string into a diff.
-	assertEquals(diffs, dmp.diff_fromDelta(text1, delta))
+	assertEquals(diffs, differ.diff_fromDelta(text1, delta))
 
 	// Verify pool of unchanged characters.
 	diffs = makeDiffs([[DiffOperation.Insert, "A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # "]])
-	const text2 = dmp.diff_text2(diffs)
+	const text2 = differ.diff_text2(diffs)
 	assertEquals("A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # ", text2)
 
-	delta = dmp.diff_toDelta(diffs)
+	delta = differ.diff_toDelta(diffs)
 	assertEquals("+A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # ", delta)
 
 	// Convert delta string into a diff.
-	assertEquals(diffs, dmp.diff_fromDelta('', delta))
+	assertEquals(diffs, differ.diff_fromDelta('', delta))
 
 	// 160 kb string.
 	let a = 'abcdefghij'
@@ -711,11 +711,11 @@ Deno.test('DiffDelta', function testDiffDelta() {
 		a += a
 	}
 	diffs = makeDiffs([[DiffOperation.Insert, a]])
-	delta = dmp.diff_toDelta(diffs)
+	delta = differ.diff_toDelta(diffs)
 	assertEquals('+' + a, delta)
 
 	// Convert delta string into a diff.
-	assertEquals(diffs, dmp.diff_fromDelta('', delta))
+	assertEquals(diffs, differ.diff_fromDelta('', delta))
 })
 
 Deno.test('DiffXIndex', function testDiffXIndex() {
@@ -723,7 +723,7 @@ Deno.test('DiffXIndex', function testDiffXIndex() {
 	// Translation on equality.
 	assertEquals(
 		5,
-		dmp.diff_xIndex(
+		differ.diff_xIndex(
 			makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, '1234'], [DiffOperation.Equal, 'xyz']]),
 			2,
 		),
@@ -732,7 +732,7 @@ Deno.test('DiffXIndex', function testDiffXIndex() {
 	// Translation on deletion.
 	assertEquals(
 		1,
-		dmp.diff_xIndex(
+		differ.diff_xIndex(
 			makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '1234'], [DiffOperation.Equal, 'xyz']]),
 			3,
 		),
@@ -743,7 +743,7 @@ Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
 	// Levenshtein with trailing equality.
 	assertEquals(
 		4,
-		dmp.diff_levenshtein(makeDiffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, '1234'], [
+		differ.diff_levenshtein(makeDiffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, '1234'], [
 			DiffOperation.Equal,
 			'xyz',
 		]])),
@@ -751,7 +751,7 @@ Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
 	// Levenshtein with leading equality.
 	assertEquals(
 		4,
-		dmp.diff_levenshtein(makeDiffs([[DiffOperation.Equal, 'xyz'], [DiffOperation.Delete, 'abc'], [
+		differ.diff_levenshtein(makeDiffs([[DiffOperation.Equal, 'xyz'], [DiffOperation.Delete, 'abc'], [
 			DiffOperation.Insert,
 			'1234',
 		]])),
@@ -759,7 +759,7 @@ Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
 	// Levenshtein with middle equality.
 	assertEquals(
 		7,
-		dmp.diff_levenshtein(makeDiffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'xyz'], [
+		differ.diff_levenshtein(makeDiffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'xyz'], [
 			DiffOperation.Insert,
 			'1234',
 		]])),
@@ -781,13 +781,13 @@ Deno.test('DiffBisect', function testDiffBisect() {
 			DiffOperation.Insert,
 			'p',
 		]],
-		dmp['diff_bisect_'](a, b, Number.MAX_VALUE),
+		differ['diff_bisect_'](a, b, Number.MAX_VALUE),
 	)
 
 	// Timeout.
 	assertDiffsEqual(
 		[[DiffOperation.Delete, 'cat'], [DiffOperation.Insert, 'map']],
-		dmp['diff_bisect_'](a, b, 0),
+		differ['diff_bisect_'](a, b, 0),
 	)
 })
 
@@ -809,21 +809,21 @@ Deno.test('DiffMain', function testDiffMain() {
 
 	// Perform a trivial diff.
 	// Null case.
-	assertEquals([], dmp.diff_main('', '', false))
+	assertEquals([], differ.diff_main('', '', false))
 
 	// Equality.
-	assertDiffsEqual([[DiffOperation.Equal, 'abc']], dmp.diff_main('abc', 'abc', false))
+	assertDiffsEqual([[DiffOperation.Equal, 'abc']], differ.diff_main('abc', 'abc', false))
 
 	// Simple insertion.
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'ab'], [DiffOperation.Insert, '123'], [DiffOperation.Equal, 'c']],
-		dmp.diff_main('abc', 'ab123c', false),
+		differ.diff_main('abc', 'ab123c', false),
 	)
 
 	// Simple deletion.
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '123'], [DiffOperation.Equal, 'bc']],
-		dmp.diff_main('a123bc', 'abc', false),
+		differ.diff_main('a123bc', 'abc', false),
 	)
 
 	// Two insertions.
@@ -835,7 +835,7 @@ Deno.test('DiffMain', function testDiffMain() {
 			DiffOperation.Equal,
 			'c',
 		]],
-		dmp.diff_main('abc', 'a123b456c', false),
+		differ.diff_main('abc', 'a123b456c', false),
 	)
 
 	// Two deletions.
@@ -847,14 +847,14 @@ Deno.test('DiffMain', function testDiffMain() {
 			DiffOperation.Equal,
 			'c',
 		]],
-		dmp.diff_main('a123b456c', 'abc', false),
+		differ.diff_main('a123b456c', 'abc', false),
 	)
 
 	// Perform a real diff.
 	// Switch off the timeout.
-	dmp.Diff_Timeout = 0
+	differ.Diff_Timeout = 0
 	// Simple cases.
-	assertDiffsEqual([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'b']], dmp.diff_main('a', 'b', false))
+	assertDiffsEqual([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'b']], differ.diff_main('a', 'b', false))
 
 	assertDiffsEqual(
 		[
@@ -867,7 +867,7 @@ Deno.test('DiffMain', function testDiffMain() {
 				' fruit.',
 			],
 		],
-		dmp.diff_main('Apples are a fruit.', 'Bananas are also fruit.', false),
+		differ.diff_main('Apples are a fruit.', 'Bananas are also fruit.', false),
 	)
 
 	assertDiffsEqual(
@@ -878,7 +878,7 @@ Deno.test('DiffMain', function testDiffMain() {
 			DiffOperation.Insert,
 			'\0',
 		]],
-		dmp.diff_main('ax\t', '\u0680x\0', false),
+		differ.diff_main('ax\t', '\u0680x\0', false),
 	)
 
 	// Overlaps.
@@ -891,12 +891,12 @@ Deno.test('DiffMain', function testDiffMain() {
 			[DiffOperation.Delete, '2'],
 			[DiffOperation.Insert, 'xab'],
 		],
-		dmp.diff_main('1ayb2', 'abxab', false),
+		differ.diff_main('1ayb2', 'abxab', false),
 	)
 
 	assertDiffsEqual(
 		[[DiffOperation.Insert, 'xaxcx'], [DiffOperation.Equal, 'abc'], [DiffOperation.Delete, 'y']],
-		dmp.diff_main('abcy', 'xaxcxabc', false),
+		differ.diff_main('abcy', 'xaxcxabc', false),
 	)
 
 	assertDiffsEqual(
@@ -911,7 +911,7 @@ Deno.test('DiffMain', function testDiffMain() {
 			[DiffOperation.Equal, 'efghijklmnopqrs'],
 			[DiffOperation.Delete, 'EFGHIJKLMNOefg'],
 		],
-		dmp.diff_main('ABCDa=bcd=efghijklmnopqrsEFGHIJKLMNOefg', 'a-bcd-efghijklmnopqrs', false),
+		differ.diff_main('ABCDa=bcd=efghijklmnopqrsEFGHIJKLMNOefg', 'a-bcd-efghijklmnopqrs', false),
 	)
 
 	// Large equality.
@@ -923,11 +923,11 @@ Deno.test('DiffMain', function testDiffMain() {
 			DiffOperation.Delete,
 			' and [[New',
 		]],
-		dmp.diff_main('a [[Pennsylvania]] and [[New', ' and [[Pennsylvania]]', false),
+		differ.diff_main('a [[Pennsylvania]] and [[New', ' and [[Pennsylvania]]', false),
 	)
 
 	// Timeout.
-	dmp.Diff_Timeout = 0.1 // 100ms
+	differ.Diff_Timeout = 0.1 // 100ms
 	let a =
 		'`Twas brillig, and the slithy toves\nDid gyre and gimble in the wabe:\nAll mimsy were the borogoves,\nAnd the mome raths outgrabe.\n'
 	let b =
@@ -938,39 +938,39 @@ Deno.test('DiffMain', function testDiffMain() {
 		b += b
 	}
 	const startTime = (new Date()).getTime()
-	dmp.diff_main(a, b)
+	differ.diff_main(a, b)
 	const endTime = (new Date()).getTime()
 	// Test that we took at least the timeout period.
-	assert(dmp.Diff_Timeout * 1000 <= endTime - startTime)
+	assert(differ.Diff_Timeout * 1000 <= endTime - startTime)
 	// Test that we didn't take forever (be forgiving).
 	// Theoretically this test could fail very occasionally if the
 	// OS task swaps or locks up for a second at the wrong moment.
-	assert(dmp.Diff_Timeout * 1000 * 2 > endTime - startTime)
-	dmp.Diff_Timeout = 0
+	assert(differ.Diff_Timeout * 1000 * 2 > endTime - startTime)
+	differ.Diff_Timeout = 0
 
 	// Test the linemode speedup.
 	// Must be long to pass the 100 char cutoff.
 	// Simple line-mode.
 	a = '1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n'
 	b = 'abcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\nabcdefghij\n'
-	assertEquals(dmp.diff_main(a, b, false), dmp.diff_main(a, b, true))
+	assertEquals(differ.diff_main(a, b, false), differ.diff_main(a, b, true))
 
 	// Single line-mode.
 	a = '1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890'
 	b = 'abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij'
-	assertEquals(dmp.diff_main(a, b, false), dmp.diff_main(a, b, true))
+	assertEquals(differ.diff_main(a, b, false), differ.diff_main(a, b, true))
 
 	// Overlap line-mode.
 	a = '1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n1234567890\n'
 	b = 'abcdefghij\n1234567890\n1234567890\n1234567890\nabcdefghij\n1234567890\n1234567890\n1234567890\nabcdefghij\n1234567890\n1234567890\n1234567890\nabcdefghij\n'
-	const texts_linemode = diff_rebuildtexts(dmp.diff_main(a, b, true))
-	const texts_textmode = diff_rebuildtexts(dmp.diff_main(a, b, false))
+	const texts_linemode = diff_rebuildtexts(differ.diff_main(a, b, true))
+	const texts_textmode = diff_rebuildtexts(differ.diff_main(a, b, false))
 	assertEquals(texts_textmode, texts_linemode)
 
 	// Test null inputs.
 	try {
 		// @ts-expect-error null not allowed
-		dmp.diff_main(null, null)
+		differ.diff_main(null, null)
 		assertEquals(Error, null)
 	} catch (_e) {
 		// Exception expected.
@@ -982,19 +982,19 @@ Deno.test('DiffMain', function testDiffMain() {
 Deno.test('MatchAlphabet', function testMatchAlphabet() {
 	// Initialise the bitmasks for Bitap.
 	// Unique.
-	assertEquals({ 'a': 4, 'b': 2, 'c': 1 }, dmp['match_alphabet_']('abc'))
+	assertEquals({ 'a': 4, 'b': 2, 'c': 1 }, differ['match_alphabet_']('abc'))
 
 	// Duplicates.
-	assertEquals({ 'a': 37, 'b': 18, 'c': 8 }, dmp['match_alphabet_']('abcaba'))
+	assertEquals({ 'a': 37, 'b': 18, 'c': 8 }, differ['match_alphabet_']('abcaba'))
 })
 
 Deno.test('MatchBitap', function testMatchBitap() {
 	// testing private method
-	const match_bitap_ = dmp['match_bitap_'].bind(dmp)
+	const match_bitap_ = differ['match_bitap_'].bind(differ)
 
 	// Bitap algorithm.
-	dmp.Match_Distance = 100
-	dmp.Match_Threshold = 0.5
+	differ.Match_Distance = 100
+	differ.Match_Threshold = 0.5
 	// Exact matches.
 	assertEquals(5, match_bitap_('abcdefghijk', 'fgh', 5))
 
@@ -1011,15 +1011,15 @@ Deno.test('MatchBitap', function testMatchBitap() {
 	assertEquals(2, match_bitap_('123456789xx0', '3456789x0', 2))
 
 	// Threshold test.
-	dmp.Match_Threshold = 0.4
+	differ.Match_Threshold = 0.4
 	assertEquals(4, match_bitap_('abcdefghijk', 'efxyhi', 1))
 
-	dmp.Match_Threshold = 0.3
+	differ.Match_Threshold = 0.3
 	assertEquals(-1, match_bitap_('abcdefghijk', 'efxyhi', 1))
 
-	dmp.Match_Threshold = 0.0
+	differ.Match_Threshold = 0.0
 	assertEquals(1, match_bitap_('abcdefghijk', 'bcdef', 1))
-	dmp.Match_Threshold = 0.5
+	differ.Match_Threshold = 0.5
 
 	// Multiple select.
 	assertEquals(0, match_bitap_('abcdexyzabcde', 'abccde', 3))
@@ -1027,39 +1027,39 @@ Deno.test('MatchBitap', function testMatchBitap() {
 	assertEquals(8, match_bitap_('abcdexyzabcde', 'abccde', 5))
 
 	// Distance test.
-	dmp.Match_Distance = 10 // Strict location.
+	differ.Match_Distance = 10 // Strict location.
 	assertEquals(-1, match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
 
 	assertEquals(0, match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdxxefg', 1))
 
-	dmp.Match_Distance = 1000 // Loose location.
+	differ.Match_Distance = 1000 // Loose location.
 	assertEquals(0, match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
 })
 
 Deno.test('MatchMain', function testMatchMain() {
 	// Full match.
 	// Shortcut matches.
-	assertEquals(0, dmp.match_main('abcdef', 'abcdef', 1000))
+	assertEquals(0, differ.match_main('abcdef', 'abcdef', 1000))
 
-	assertEquals(-1, dmp.match_main('', 'abcdef', 1))
+	assertEquals(-1, differ.match_main('', 'abcdef', 1))
 
-	assertEquals(3, dmp.match_main('abcdef', '', 3))
+	assertEquals(3, differ.match_main('abcdef', '', 3))
 
-	assertEquals(3, dmp.match_main('abcdef', 'de', 3))
+	assertEquals(3, differ.match_main('abcdef', 'de', 3))
 
 	// Beyond end match.
-	assertEquals(3, dmp.match_main('abcdef', 'defy', 4))
+	assertEquals(3, differ.match_main('abcdef', 'defy', 4))
 
 	// Oversized pattern.
-	assertEquals(0, dmp.match_main('abcdef', 'abcdefy', 0))
+	assertEquals(0, differ.match_main('abcdef', 'abcdefy', 0))
 
 	// Complex match.
-	assertEquals(4, dmp.match_main('I am the very model of a modern major general.', ' that berry ', 5))
+	assertEquals(4, differ.match_main('I am the very model of a modern major general.', ' that berry ', 5))
 
 	// Test null inputs.
 	try {
 		// @ts-expect-error null not allowed
-		dmp.match_main(null, null, 0)
+		differ.match_main(null, null, 0)
 		assertEquals(Error, null)
 	} catch (_e) {
 		// Exception expected.
@@ -1089,25 +1089,25 @@ Deno.test('PatchObj', function testPatchObj() {
 })
 
 Deno.test('PatchFromText', function testPatchFromText() {
-	assertEquals([], dmp.patch_fromText(''))
+	assertEquals([], differ.patch_fromText(''))
 	// @ts-expect-error null
-	assertEquals([], dmp.patch_fromText(null))
+	assertEquals([], differ.patch_fromText(null))
 	// @ts-expect-error undefined
-	assertEquals([], dmp.patch_fromText(undefined))
+	assertEquals([], differ.patch_fromText(undefined))
 
 	const strp = '@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n %0Alaz\n'
 
-	assertEquals(strp, dmp.patch_fromText(strp)[0].toString())
+	assertEquals(strp, differ.patch_fromText(strp)[0].toString())
 
-	assertEquals('@@ -1 +1 @@\n-a\n+b\n', dmp.patch_fromText('@@ -1 +1 @@\n-a\n+b\n')[0].toString())
+	assertEquals('@@ -1 +1 @@\n-a\n+b\n', differ.patch_fromText('@@ -1 +1 @@\n-a\n+b\n')[0].toString())
 
-	assertEquals('@@ -1,3 +0,0 @@\n-abc\n', dmp.patch_fromText('@@ -1,3 +0,0 @@\n-abc\n')[0].toString())
+	assertEquals('@@ -1,3 +0,0 @@\n-abc\n', differ.patch_fromText('@@ -1,3 +0,0 @@\n-abc\n')[0].toString())
 
-	assertEquals('@@ -0,0 +1,3 @@\n+abc\n', dmp.patch_fromText('@@ -0,0 +1,3 @@\n+abc\n')[0].toString())
+	assertEquals('@@ -0,0 +1,3 @@\n+abc\n', differ.patch_fromText('@@ -0,0 +1,3 @@\n+abc\n')[0].toString())
 
 	// Generates error.
 	try {
-		dmp.patch_fromText('Bad\nPatch\n')
+		differ.patch_fromText('Bad\nPatch\n')
 		assertEquals(Error, null)
 	} catch (_e) {
 		// Exception expected.
@@ -1116,43 +1116,43 @@ Deno.test('PatchFromText', function testPatchFromText() {
 
 Deno.test('PatchToText', function testPatchToText() {
 	let strp = '@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n  laz\n'
-	let p = dmp.patch_fromText(strp)
-	assertEquals(strp, dmp.patch_toText(p))
+	let p = differ.patch_fromText(strp)
+	assertEquals(strp, differ.patch_toText(p))
 
 	strp = '@@ -1,9 +1,9 @@\n-f\n+F\n oo+fooba\n@@ -7,9 +7,9 @@\n obar\n-,\n+.\n  tes\n'
-	p = dmp.patch_fromText(strp)
-	assertEquals(strp, dmp.patch_toText(p))
+	p = differ.patch_fromText(strp)
+	assertEquals(strp, differ.patch_toText(p))
 })
 
 Deno.test('PatchAddContext', function testPatchAddContext() {
 	// testing private method
-	const patch_addContext_ = dmp['patch_addContext_'].bind(dmp)
+	const patch_addContext_ = differ['patch_addContext_'].bind(differ)
 
-	dmp.Patch_Margin = 4
-	let p = dmp.patch_fromText('@@ -21,4 +21,10 @@\n-jump\n+somersault\n')[0]
+	differ.Patch_Margin = 4
+	let p = differ.patch_fromText('@@ -21,4 +21,10 @@\n-jump\n+somersault\n')[0]
 	patch_addContext_(p, 'The quick brown fox jumps over the lazy dog.')
 	assertEquals('@@ -17,12 +17,18 @@\n fox \n-jump\n+somersault\n s ov\n', p.toString())
 
 	// Same, but not enough trailing context.
-	p = dmp.patch_fromText('@@ -21,4 +21,10 @@\n-jump\n+somersault\n')[0]
+	p = differ.patch_fromText('@@ -21,4 +21,10 @@\n-jump\n+somersault\n')[0]
 	patch_addContext_(p, 'The quick brown fox jumps.')
 	assertEquals('@@ -17,10 +17,16 @@\n fox \n-jump\n+somersault\n s.\n', p.toString())
 
 	// Same, but not enough leading context.
-	p = dmp.patch_fromText('@@ -3 +3,2 @@\n-e\n+at\n')[0]
+	p = differ.patch_fromText('@@ -3 +3,2 @@\n-e\n+at\n')[0]
 	patch_addContext_(p, 'The quick brown fox jumps.')
 	assertEquals('@@ -1,7 +1,8 @@\n Th\n-e\n+at\n  qui\n', p.toString())
 
 	// Same, but with ambiguity.
-	p = dmp.patch_fromText('@@ -3 +3,2 @@\n-e\n+at\n')[0]
+	p = differ.patch_fromText('@@ -3 +3,2 @@\n-e\n+at\n')[0]
 	patch_addContext_(p, 'The quick brown fox jumps.  The quick brown fox crashes.')
 	assertEquals('@@ -1,27 +1,28 @@\n Th\n-e\n+at\n  quick brown fox jumps. \n', p.toString())
 })
 
 Deno.test('PatchMake', function testPatchMake() {
 	// Null case.
-	let patches = dmp.patch_make('', '')
-	assertEquals('', dmp.patch_toText(patches))
+	let patches = differ.patch_make('', '')
+	assertEquals('', differ.patch_toText(patches))
 
 	let text1 = 'The quick brown fox jumps over the lazy dog.'
 	let text2 = 'That quick brown fox jumped over a lazy dog.'
@@ -1160,33 +1160,33 @@ Deno.test('PatchMake', function testPatchMake() {
 	let expectedPatch =
 		'@@ -1,8 +1,7 @@\n Th\n-at\n+e\n  qui\n@@ -21,17 +21,18 @@\n jump\n-ed\n+s\n  over \n-a\n+the\n  laz\n'
 	// The second patch must be "-21,17 +21,18", not "-22,17 +21,18" due to rolling context.
-	patches = dmp.patch_make(text2, text1)
-	assertEquals(expectedPatch, dmp.patch_toText(patches))
+	patches = differ.patch_make(text2, text1)
+	assertEquals(expectedPatch, differ.patch_toText(patches))
 
 	// Text1+Text2 inputs.
 	expectedPatch =
 		'@@ -1,11 +1,12 @@\n Th\n-e\n+at\n  quick b\n@@ -22,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n  laz\n'
-	patches = dmp.patch_make(text1, text2)
-	assertEquals(expectedPatch, dmp.patch_toText(patches))
+	patches = differ.patch_make(text1, text2)
+	assertEquals(expectedPatch, differ.patch_toText(patches))
 
 	// Diff input.
-	let diffs = dmp.diff_main(text1, text2, false)
-	patches = dmp.patch_make(diffs)
-	assertEquals(expectedPatch, dmp.patch_toText(patches))
+	let diffs = differ.diff_main(text1, text2, false)
+	patches = differ.patch_make(diffs)
+	assertEquals(expectedPatch, differ.patch_toText(patches))
 
 	// Text1+Diff inputs.
-	patches = dmp.patch_make(text1, diffs)
-	assertEquals(expectedPatch, dmp.patch_toText(patches))
+	patches = differ.patch_make(text1, diffs)
+	assertEquals(expectedPatch, differ.patch_toText(patches))
 
 	// Text1+Text2+Diff inputs (deprecated).
-	patches = dmp.patch_make(text1, text2, diffs)
-	assertEquals(expectedPatch, dmp.patch_toText(patches))
+	patches = differ.patch_make(text1, text2, diffs)
+	assertEquals(expectedPatch, differ.patch_toText(patches))
 
 	// Character encoding.
-	patches = dmp.patch_make("`1234567890-=[]\\;',./", '~!@#$%^&*()_+{}|:"<>?')
+	patches = differ.patch_make("`1234567890-=[]\\;',./", '~!@#$%^&*()_+{}|:"<>?')
 	assertEquals(
 		"@@ -1,21 +1,21 @@\n-%601234567890-=%5B%5D%5C;',./\n+~!@#$%25%5E&*()_+%7B%7D%7C:%22%3C%3E?\n",
-		dmp.patch_toText(patches),
+		differ.patch_toText(patches),
 	)
 
 	// Character decoding.
@@ -1196,7 +1196,7 @@ Deno.test('PatchMake', function testPatchMake() {
 	]])
 	assertEquals(
 		diffs,
-		dmp.patch_fromText(
+		differ.patch_fromText(
 			"@@ -1,21 +1,21 @@\n-%601234567890-=%5B%5D%5C;',./\n+~!@#$%25%5E&*()_+%7B%7D%7C:%22%3C%3E?\n",
 		)[0].diffs,
 	)
@@ -1208,13 +1208,13 @@ Deno.test('PatchMake', function testPatchMake() {
 	}
 	text2 = text1 + '123'
 	expectedPatch = '@@ -573,28 +573,31 @@\n cdefabcdefabcdefabcdefabcdef\n+123\n'
-	patches = dmp.patch_make(text1, text2)
-	assertEquals(expectedPatch, dmp.patch_toText(patches))
+	patches = differ.patch_make(text1, text2)
+	assertEquals(expectedPatch, differ.patch_toText(patches))
 
 	// Test null inputs.
 	try {
 		// @ts-expect-error null
-		dmp.patch_make(null)
+		differ.patch_make(null)
 		assertEquals(Error, null)
 	} catch (_e) {
 		// Exception expected.
@@ -1222,99 +1222,99 @@ Deno.test('PatchMake', function testPatchMake() {
 })
 
 Deno.test('PatchSplitMax', function testPatchSplitMax() {
-	// Assumes that dmp.Match_MaxBits is 32.
-	let patches = dmp.patch_make(
+	// Assumes that differ.Match_MaxBits is 32.
+	let patches = differ.patch_make(
 		'abcdefghijklmnopqrstuvwxyz01234567890',
 		'XabXcdXefXghXijXklXmnXopXqrXstXuvXwxXyzX01X23X45X67X89X0',
 	)
-	dmp.patch_splitMax(patches)
+	differ.patch_splitMax(patches)
 	assertEquals(
 		'@@ -1,32 +1,46 @@\n+X\n ab\n+X\n cd\n+X\n ef\n+X\n gh\n+X\n ij\n+X\n kl\n+X\n mn\n+X\n op\n+X\n qr\n+X\n st\n+X\n uv\n+X\n wx\n+X\n yz\n+X\n 012345\n@@ -25,13 +39,18 @@\n zX01\n+X\n 23\n+X\n 45\n+X\n 67\n+X\n 89\n+X\n 0\n',
-		dmp.patch_toText(patches),
+		differ.patch_toText(patches),
 	)
 
-	patches = dmp.patch_make(
+	patches = differ.patch_make(
 		'abcdef1234567890123456789012345678901234567890123456789012345678901234567890uvwxyz',
 		'abcdefuvwxyz',
 	)
-	const oldToText = dmp.patch_toText(patches)
-	dmp.patch_splitMax(patches)
-	assertEquals(oldToText, dmp.patch_toText(patches))
+	const oldToText = differ.patch_toText(patches)
+	differ.patch_splitMax(patches)
+	assertEquals(oldToText, differ.patch_toText(patches))
 
-	patches = dmp.patch_make('1234567890123456789012345678901234567890123456789012345678901234567890', 'abc')
-	dmp.patch_splitMax(patches)
+	patches = differ.patch_make('1234567890123456789012345678901234567890123456789012345678901234567890', 'abc')
+	differ.patch_splitMax(patches)
 	assertEquals(
 		'@@ -1,32 +1,4 @@\n-1234567890123456789012345678\n 9012\n@@ -29,32 +1,4 @@\n-9012345678901234567890123456\n 7890\n@@ -57,14 +1,3 @@\n-78901234567890\n+abc\n',
-		dmp.patch_toText(patches),
+		differ.patch_toText(patches),
 	)
 
-	patches = dmp.patch_make(
+	patches = differ.patch_make(
 		'abcdefghij , h : 0 , t : 1 abcdefghij , h : 0 , t : 1 abcdefghij , h : 0 , t : 1',
 		'abcdefghij , h : 1 , t : 1 abcdefghij , h : 1 , t : 1 abcdefghij , h : 0 , t : 1',
 	)
-	dmp.patch_splitMax(patches)
+	differ.patch_splitMax(patches)
 	assertEquals(
 		'@@ -2,32 +2,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n@@ -29,32 +29,32 @@\n bcdefghij , h : \n-0\n+1\n  , t : 1 abcdef\n',
-		dmp.patch_toText(patches),
+		differ.patch_toText(patches),
 	)
 })
 
 Deno.test('PatchAddPadding', function testPatchAddPadding() {
 	// Both edges full.
-	let patches = dmp.patch_make('', 'test')
-	assertEquals('@@ -0,0 +1,4 @@\n+test\n', dmp.patch_toText(patches))
-	dmp.patch_addPadding(patches)
-	assertEquals('@@ -1,8 +1,12 @@\n %01%02%03%04\n+test\n %01%02%03%04\n', dmp.patch_toText(patches))
+	let patches = differ.patch_make('', 'test')
+	assertEquals('@@ -0,0 +1,4 @@\n+test\n', differ.patch_toText(patches))
+	differ.patch_addPadding(patches)
+	assertEquals('@@ -1,8 +1,12 @@\n %01%02%03%04\n+test\n %01%02%03%04\n', differ.patch_toText(patches))
 
 	// Both edges partial.
-	patches = dmp.patch_make('XY', 'XtestY')
-	assertEquals('@@ -1,2 +1,6 @@\n X\n+test\n Y\n', dmp.patch_toText(patches))
-	dmp.patch_addPadding(patches)
-	assertEquals('@@ -2,8 +2,12 @@\n %02%03%04X\n+test\n Y%01%02%03\n', dmp.patch_toText(patches))
+	patches = differ.patch_make('XY', 'XtestY')
+	assertEquals('@@ -1,2 +1,6 @@\n X\n+test\n Y\n', differ.patch_toText(patches))
+	differ.patch_addPadding(patches)
+	assertEquals('@@ -2,8 +2,12 @@\n %02%03%04X\n+test\n Y%01%02%03\n', differ.patch_toText(patches))
 
 	// Both edges none.
-	patches = dmp.patch_make('XXXXYYYY', 'XXXXtestYYYY')
-	assertEquals('@@ -1,8 +1,12 @@\n XXXX\n+test\n YYYY\n', dmp.patch_toText(patches))
-	dmp.patch_addPadding(patches)
-	assertEquals('@@ -5,8 +5,12 @@\n XXXX\n+test\n YYYY\n', dmp.patch_toText(patches))
+	patches = differ.patch_make('XXXXYYYY', 'XXXXtestYYYY')
+	assertEquals('@@ -1,8 +1,12 @@\n XXXX\n+test\n YYYY\n', differ.patch_toText(patches))
+	differ.patch_addPadding(patches)
+	assertEquals('@@ -5,8 +5,12 @@\n XXXX\n+test\n YYYY\n', differ.patch_toText(patches))
 })
 
 Deno.test('PatchApply', function testPatchApply() {
-	dmp.Match_Distance = 1000
-	dmp.Match_Threshold = 0.5
-	dmp.Patch_DeleteThreshold = 0.5
+	differ.Match_Distance = 1000
+	differ.Match_Threshold = 0.5
+	differ.Patch_DeleteThreshold = 0.5
 	// Null case.
-	let patches = dmp.patch_make('', '')
-	let results = dmp.patch_apply(patches, 'Hello world.')
+	let patches = differ.patch_make('', '')
+	let results = differ.patch_apply(patches, 'Hello world.')
 	assertEquals(['Hello world.', []], results)
 
 	// Exact match.
-	patches = dmp.patch_make(
+	patches = differ.patch_make(
 		'The quick brown fox jumps over the lazy dog.',
 		'That quick brown fox jumped over a lazy dog.',
 	)
-	results = dmp.patch_apply(patches, 'The quick brown fox jumps over the lazy dog.')
+	results = differ.patch_apply(patches, 'The quick brown fox jumps over the lazy dog.')
 	assertEquals(['That quick brown fox jumped over a lazy dog.', [true, true]], results)
 
 	// Partial match.
-	results = dmp.patch_apply(patches, 'The quick red rabbit jumps over the tired tiger.')
+	results = differ.patch_apply(patches, 'The quick red rabbit jumps over the tired tiger.')
 	assertEquals(['That quick red rabbit jumped over a tired tiger.', [true, true]], results)
 
 	// Failed match.
-	results = dmp.patch_apply(patches, 'I am the very model of a modern major general.')
+	results = differ.patch_apply(patches, 'I am the very model of a modern major general.')
 	assertEquals(['I am the very model of a modern major general.', [false, false]], results)
 
 	// Big delete, small change.
-	patches = dmp.patch_make('x1234567890123456789012345678901234567890123456789012345678901234567890y', 'xabcy')
-	results = dmp.patch_apply(
+	patches = differ.patch_make('x1234567890123456789012345678901234567890123456789012345678901234567890y', 'xabcy')
+	results = differ.patch_apply(
 		patches,
 		'x123456789012345678901234567890-----++++++++++-----123456789012345678901234567890y',
 	)
 	assertEquals(['xabcy', [true, true]], results)
 
 	// Big delete, big change 1.
-	patches = dmp.patch_make('x1234567890123456789012345678901234567890123456789012345678901234567890y', 'xabcy')
-	results = dmp.patch_apply(
+	patches = differ.patch_make('x1234567890123456789012345678901234567890123456789012345678901234567890y', 'xabcy')
+	results = differ.patch_apply(
 		patches,
 		'x12345678901234567890---------------++++++++++---------------12345678901234567890y',
 	)
@@ -1324,52 +1324,52 @@ Deno.test('PatchApply', function testPatchApply() {
 	]], results)
 
 	// Big delete, big change 2.
-	dmp.Patch_DeleteThreshold = 0.6
-	patches = dmp.patch_make('x1234567890123456789012345678901234567890123456789012345678901234567890y', 'xabcy')
-	results = dmp.patch_apply(
+	differ.Patch_DeleteThreshold = 0.6
+	patches = differ.patch_make('x1234567890123456789012345678901234567890123456789012345678901234567890y', 'xabcy')
+	results = differ.patch_apply(
 		patches,
 		'x12345678901234567890---------------++++++++++---------------12345678901234567890y',
 	)
 	assertEquals(['xabcy', [true, true]], results)
-	dmp.Patch_DeleteThreshold = 0.5
+	differ.Patch_DeleteThreshold = 0.5
 
 	// Compensate for failed patch.
-	dmp.Match_Threshold = 0.0
-	dmp.Match_Distance = 0
-	patches = dmp.patch_make(
+	differ.Match_Threshold = 0.0
+	differ.Match_Distance = 0
+	patches = differ.patch_make(
 		'abcdefghijklmnopqrstuvwxyz--------------------1234567890',
 		'abcXXXXXXXXXXdefghijklmnopqrstuvwxyz--------------------1234567YYYYYYYYYY890',
 	)
-	results = dmp.patch_apply(patches, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ--------------------1234567890')
+	results = differ.patch_apply(patches, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ--------------------1234567890')
 	assertEquals(['ABCDEFGHIJKLMNOPQRSTUVWXYZ--------------------1234567YYYYYYYYYY890', [false, true]], results)
-	dmp.Match_Threshold = 0.5
-	dmp.Match_Distance = 1000
+	differ.Match_Threshold = 0.5
+	differ.Match_Distance = 1000
 
 	// No side effects.
-	patches = dmp.patch_make('', 'test')
-	let patchstr = dmp.patch_toText(patches)
-	dmp.patch_apply(patches, '')
-	assertEquals(patchstr, dmp.patch_toText(patches))
+	patches = differ.patch_make('', 'test')
+	let patchstr = differ.patch_toText(patches)
+	differ.patch_apply(patches, '')
+	assertEquals(patchstr, differ.patch_toText(patches))
 
 	// No side effects with major delete.
-	patches = dmp.patch_make('The quick brown fox jumps over the lazy dog.', 'Woof')
-	patchstr = dmp.patch_toText(patches)
-	dmp.patch_apply(patches, 'The quick brown fox jumps over the lazy dog.')
-	assertEquals(patchstr, dmp.patch_toText(patches))
+	patches = differ.patch_make('The quick brown fox jumps over the lazy dog.', 'Woof')
+	patchstr = differ.patch_toText(patches)
+	differ.patch_apply(patches, 'The quick brown fox jumps over the lazy dog.')
+	assertEquals(patchstr, differ.patch_toText(patches))
 
 	// Edge exact match.
-	patches = dmp.patch_make('', 'test')
-	results = dmp.patch_apply(patches, '')
+	patches = differ.patch_make('', 'test')
+	results = differ.patch_apply(patches, '')
 	assertEquals(['test', [true]], results)
 
 	// Near edge exact match.
-	patches = dmp.patch_make('XY', 'XtestY')
-	results = dmp.patch_apply(patches, 'XY')
+	patches = differ.patch_make('XY', 'XtestY')
+	results = differ.patch_apply(patches, 'XY')
 	assertEquals(['XtestY', [true]], results)
 
 	// Edge partial match.
-	patches = dmp.patch_make('y', 'y123')
-	results = dmp.patch_apply(patches, 'x')
+	patches = differ.patch_make('y', 'y123')
+	results = differ.patch_apply(patches, 'x')
 	assertEquals(['x123', [true]], results)
 })
 
@@ -1377,7 +1377,7 @@ Deno.test('diff', async (t) => {
 	await t.step('chars', () => {
 		assertDiffsEqual(
 			[[-1, 'abc'], [0, 'd'], [1, 'efg']],
-			dmp.diff('abcd', 'defg'),
+			differ.diff('abcd', 'defg'),
 		)
 	})
 
@@ -1385,7 +1385,7 @@ Deno.test('diff', async (t) => {
 		await t.step('emojis', () => {
 			assertDiffsEqual(
 				[[-1, '💫'], [1, '💩']],
-				dmp.diff('💫', '💩'),
+				differ.diff('💫', '💩'),
 			)
 		})
 
@@ -1394,12 +1394,12 @@ Deno.test('diff', async (t) => {
 
 			assertDiffsEqual(
 				[[0, '\ud83d'], [-1, '\udcab'], [1, '\udca9']],
-				dmp.diff('💫', '💩', { segmenter }),
+				differ.diff('💫', '💩', { segmenter }),
 			)
 
 			assertEquals(
-				dmp.diff_main('💫', '💩'),
-				dmp.diff('💫', '💩', { segmenter }),
+				differ.diff_main('💫', '💩'),
+				differ.diff('💫', '💩', { segmenter }),
 			)
 		})
 	})
@@ -1408,19 +1408,19 @@ Deno.test('diff', async (t) => {
 		await t.step('default word segmenter', () => {
 			assertDiffsEqual(
 				[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world!']],
-				dmp.diff('Hello, world!', 'Goodbye, world!', { segmenter: segmenters.word }),
+				differ.diff('Hello, world!', 'Goodbye, world!', { segmenter: segmenters.word }),
 			)
 		})
 
 		await t.step('xml', () => {
 			assertDiffsEqual(
 				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
-				dmp.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
+				differ.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
 			)
 
 			assertDiffsEqual(
 				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
-				dmp.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
+				differ.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
 			)
 		})
 
@@ -1429,7 +1429,7 @@ Deno.test('diff', async (t) => {
 
 			assertDiffsEqual(
 				[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
-				dmp.diff('两只小蜜蜂', '两只老虎', { segmenter }),
+				differ.diff('两只小蜜蜂', '两只老虎', { segmenter }),
 			)
 		})
 	})
@@ -1438,10 +1438,10 @@ Deno.test('diff', async (t) => {
 		// https://github.com/google/diff-match-patch/wiki/Line-or-Word-Diffs
 
 		function diffLineMode(text1: string, text2: string) {
-			const dmp = new DiffMatchPatch()
-			const { chars1, chars2, lineArray } = dmp['diff_linesToChars_'](text1, text2)
-			const diffs = dmp.diff_main(chars1, chars2, false)
-			dmp['diff_charsToLines_'](diffs, lineArray)
+			const differ = new Differ()
+			const { chars1, chars2, lineArray } = differ['diff_linesToChars_'](text1, text2)
+			const diffs = differ.diff_main(chars1, chars2, false)
+			differ['diff_charsToLines_'](diffs, lineArray)
 
 			return diffs
 		}
@@ -1451,7 +1451,7 @@ Deno.test('diff', async (t) => {
 
 		assertEquals(
 			diffLineMode(str1, str2),
-			dmp.diff(str1, str2, { segmenter: segmenters.line }),
+			differ.diff(str1, str2, { segmenter: segmenters.line }),
 		)
 	})
 })
@@ -1469,12 +1469,12 @@ Line Four
 Line Five
 `
 
-		const diffs = dmp.diff(text1, text2, {
+		const diffs = differ.diff(text1, text2, {
 			segmenter: segmenters.line,
 			join: false,
 		})
 
-		const d = dmp.diffWithin(diffs, {
+		const d = differ.diffWithin(diffs, {
 			segmenter: segmenters.word,
 		})
 

@@ -2,7 +2,7 @@
 
 import {
 	Diff,
-	diff_match_patch,
+	DiffMatchPatch,
 	DiffOperation,
 	MAX_BMP_CODEPOINT,
 	TWO_THIRDS_OF_MAX_BMP_CODEPOINT,
@@ -34,7 +34,7 @@ const defaultDiffOptions = {
 	join: true,
 }
 
-export class DiffMatchPatch extends diff_match_patch {
+export class Differ extends DiffMatchPatch {
 	/**
 	 * Diff two strings. Unicode-aware by default, including non-BMP characters.
 	 *
@@ -47,23 +47,23 @@ export class DiffMatchPatch extends diff_match_patch {
 	 *
 	 * @example
 	 * ```ts
-	 * import { DiffMatchPatch, segmenters } from 'diff-match-patch-unicode'
+	 * import { Differ, segmenters } from 'diff-match-patch-unicode'
 	 *
-	 * const dmp = new DiffMatchPatch()
+	 * const differ = new Differ()
 	 *
 	 * const str1 = 'Hello, world! 💫'
 	 * const str2 = 'Goodbye, world! 💩'
 	 *
 	 * // default behavior: UTF-8 char diff
-	 * dmp.diff(str1, str2) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
+	 * differ.diff(str1, str2) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
 	 * // word diff with `Intl.Segmenter`
-	 * dmp.diff(str1, str2, { segmenter: segmenters.word }) // [-1, "Hello"], [1, "Goodbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
+	 * differ.diff(str1, str2, { segmenter: segmenters.word }) // [-1, "Hello"], [1, "Goodbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
 	 * // pass in a custom `Intl.Segmenter` instance
-	 * dmp.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }) // [0, '两只'], [-1, '小蜜蜂'], [1, '老虎']
+	 * differ.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }) // [0, '两只'], [-1, '小蜜蜂'], [1, '老虎']
 	 * // line diff
-	 * dmp.diff(str1, str2, { segmenter: segmenters.line }) // [-1, "Hello, world! 💫"], [1, "Goodbye, world! 💩"]
+	 * differ.diff(str1, str2, { segmenter: segmenters.line }) // [-1, "Hello, world! 💫"], [1, "Goodbye, world! 💩"]
 	 * // custom UTF-16 code-unit diff (equivalent to using `diff_main` directly... but less performant)
-	 * dmp.diff(str1, str2, { segmenter: (str) => str.split('') }) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
+	 * differ.diff(str1, str2, { segmenter: (str) => str.split('') }) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
 	 * ```
 	 */
 	diff(str1, str2, options) {

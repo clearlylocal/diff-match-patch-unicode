@@ -142,7 +142,7 @@ export class Patch {
 /**
  * Class containing the diff, match and patch methods.
  */
-export class diff_match_patch {
+export class DiffMatchPatch {
 	constructor() {
 		// Defaults.
 		// Redefine these in your program to override the defaults.
@@ -732,8 +732,9 @@ export class diff_match_patch {
 	 * @returns {string[] | null} Five element Array, containing the prefix of
 	 *     longtext, the suffix of longtext, the prefix of shorttext, the suffix
 	 *     of shorttext and the common middle.  Or null if there was no match.
+	 * @protected
 	 */
-	#diff_halfMatchI_(longtext, shorttext, i) {
+	diff_halfMatchI_(longtext, shorttext, i) {
 		// Start with a 1/4 length substring at position i as a seed.
 		const seed = longtext.substring(i, i + Math.floor(longtext.length / 4))
 		let j = -1
@@ -784,9 +785,9 @@ export class diff_match_patch {
 		}
 
 		// First check if the second quarter is the seed for a half-match.
-		const hm1 = this.#diff_halfMatchI_(longtext, shorttext, Math.ceil(longtext.length / 4))
+		const hm1 = this.diff_halfMatchI_(longtext, shorttext, Math.ceil(longtext.length / 4))
 		// Check again based on the third quarter.
-		const hm2 = this.#diff_halfMatchI_(longtext, shorttext, Math.ceil(longtext.length / 2))
+		const hm2 = this.diff_halfMatchI_(longtext, shorttext, Math.ceil(longtext.length / 2))
 
 		/** @type {string[]} */
 		let hm
@@ -975,20 +976,20 @@ export class diff_match_patch {
 			// rather than force total conformity.
 			const char1 = one.charAt(one.length - 1)
 			const char2 = two.charAt(0)
-			const nonAlphaNumeric1 = char1.match(diff_match_patch.nonAlphaNumericRegex_)
-			const nonAlphaNumeric2 = char2.match(diff_match_patch.nonAlphaNumericRegex_)
+			const nonAlphaNumeric1 = char1.match(DiffMatchPatch.nonAlphaNumericRegex_)
+			const nonAlphaNumeric2 = char2.match(DiffMatchPatch.nonAlphaNumericRegex_)
 			const whitespace1 = nonAlphaNumeric1 &&
-				char1.match(diff_match_patch.whitespaceRegex_)
+				char1.match(DiffMatchPatch.whitespaceRegex_)
 			const whitespace2 = nonAlphaNumeric2 &&
-				char2.match(diff_match_patch.whitespaceRegex_)
+				char2.match(DiffMatchPatch.whitespaceRegex_)
 			const lineBreak1 = whitespace1 &&
-				char1.match(diff_match_patch.linebreakRegex_)
+				char1.match(DiffMatchPatch.linebreakRegex_)
 			const lineBreak2 = whitespace2 &&
-				char2.match(diff_match_patch.linebreakRegex_)
+				char2.match(DiffMatchPatch.linebreakRegex_)
 			const blankLine1 = lineBreak1 &&
-				one.match(diff_match_patch.blanklineEndRegex_)
+				one.match(DiffMatchPatch.blanklineEndRegex_)
 			const blankLine2 = lineBreak2 &&
-				two.match(diff_match_patch.blanklineStartRegex_)
+				two.match(DiffMatchPatch.blanklineStartRegex_)
 
 			if (blankLine1 || blankLine2) {
 				// Five points for blank lines.
