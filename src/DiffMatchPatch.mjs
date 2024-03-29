@@ -1,5 +1,8 @@
 // @ts-check
 
+import { Diff, DiffOperation } from './Diff.mjs'
+import { Patch } from './Patch.mjs'
+
 /**
  * Diff Match and Patch
  * Copyright 2018 The diff-match-patch Authors.
@@ -24,148 +27,38 @@
  * @author fraser@google.com (Neil Fraser)
  */
 
-/**
- * The data structure representing a diff is an array of tuples:
- * [[DiffOperation.Delete, 'Hello'], [DiffOperation.Insert, 'Goodbye'], [DiffOperation.Equal, ' world.']]
- * which means: delete 'Hello', add 'Goodbye' and keep ' world.'
- *
- * @enum {typeof DiffOperation[keyof typeof DiffOperation]}
- */
-export const DiffOperation = /** @type {const} */ ({
-	Delete: -1,
-	Insert: 1,
-	Equal: 0,
-})
-
-export const MAX_BMP_CODEPOINT = 0xffff
-export const TWO_THIRDS_OF_MAX_BMP_CODEPOINT = 0xaaaa
-
-/** Diff tuple of [operation, text] */
-export class Diff {
-	/**
-	 * @param {DiffOperation} op - One of {@linkcode DiffOperation.Delete}, {@linkcode DiffOperation.Insert}, or
-	 * {@linkcode DiffOperation.Equal}
-	 * @param {string} text - Text to be deleted, inserted, or retained
-	 */
-	constructor(op, text) {
-		this[0] = op
-		this[1] = text
-	}
-
-	get op() {
-		return this[0]
-	}
-	get text() {
-		return this[1]
-	}
-	get length() {
-		return 2
-	}
-
-	toJSON() {
-		return [...this]
-	}
-
-	*[Symbol.iterator]() {
-		yield this[0]
-		yield this[1]
-	}
-
-	[Symbol.for('Deno.customInspect')]() {
-		return `Diff #${(globalThis.Deno?.inspect([...this], { colors: true }) ?? JSON.stringify(this))}`
-	}
-
-	clone() {
-		return new Diff(this[0], this[1])
-	}
-}
-
-/**
- * Class representing one patch operation.
- */
-export class Patch {
-	/** @type {Diff[]} */
-	diffs = []
-	/** @type {number | null} */
-	start1 = null
-	/** @type {number | null} */
-	start2 = null
-	/** @type {number} */
-	length1 = 0
-	/** @type {number} */
-	length2 = 0
-
-	/**
-	 * Emulate GNU diff's format.
-	 * Header: `@@` -382,8 +481,9 `@@`
-	 *
-	 * Indices are printed as 1-based, not 0-based.
-	 * @returns {string} The GNU diff string.
-	 */
-	toString() {
-		let coords1, coords2
-		if (this.length1 === 0) {
-			coords1 = this.start1 + ',0'
-		} else if (this.length1 === 1) {
-			coords1 = (this.start1 ?? 0) + 1
-		} else {
-			coords1 = ((this.start1 ?? 0) + 1) + ',' + this.length1
-		}
-		if (this.length2 === 0) {
-			coords2 = this.start2 + ',0'
-		} else if (this.length2 === 1) {
-			coords2 = (this.start2 ?? 0) + 1
-		} else {
-			coords2 = ((this.start2 ?? 0) + 1) + ',' + this.length2
-		}
-		const text = ['@@ -' + coords1 + ' +' + coords2 + ' @@\n']
-		let op
-		// Escape the body of the patch with %xx notation.
-		for (let x = 0; x < this.diffs.length; x++) {
-			switch (this.diffs[x][0]) {
-				case DiffOperation.Insert:
-					op = '+'
-					break
-				case DiffOperation.Delete:
-					op = '-'
-					break
-				case DiffOperation.Equal:
-					op = ' '
-					break
-			}
-			text[x + 1] = op + encodeURI(this.diffs[x][1]) + '\n'
-		}
-		return text.join('').replace(/%20/g, ' ')
-	}
-}
+export const MAX_BMP_CODEPOINT = 0xFFFF
+export const TWO_THIRDS_OF_MAX_BMP_CODEPOINT = 0xAAAA
 
 /**
  * Class containing the diff, match and patch methods.
  */
 export class DiffMatchPatch {
-	constructor() {
-		// Defaults.
-		// Redefine these in your program to override the defaults.
-		// Number of seconds to map a diff before giving up (0 for infinity).
-		this.Diff_Timeout = 1.0
-		// Cost of an empty edit operation in terms of edit characters.
-		this.Diff_EditCost = 4
-		// At what point is no match declared (0.0 = perfection, 1.0 = very loose).
-		this.Match_Threshold = 0.5
-		// How far to search for a match (0 = exact location, 1000+ = broad match).
-		// A match this many characters away from the expected location will add
-		// 1.0 to the score (0.0 is a perfect match).
-		this.Match_Distance = 1000
-		// When deleting a large block of text (over ~64 characters), how close do
-		// the contents have to be to match the expected contents. (0.0 = perfection,
-		// 1.0 = very loose).  Note that Match_Threshold controls how closely the
-		// end points of a delete need to match.
-		this.Patch_DeleteThreshold = 0.5
-		// Chunk size for context length.
-		this.Patch_Margin = 4
-		// The number of bits in an int.
-		this.Match_MaxBits = 32
-	}
+	// Defaults - redefine these in your program to override
+
+	/** Number of seconds to map a diff before giving up (0 for infinity) */
+	Diff_Timeout = 1
+	/** Cost of an empty edit operation in terms of edit characters */
+	Diff_EditCost = 4
+	/** At what point is no match declared (0 = perfection, 1 = very loose) */
+	Match_Threshold = 0.5
+	/**
+	 * How far to search for a match (0 = exact location, 1000+ = broad match).
+	 * A match this many characters away from the expected location will add 1
+	 * to the score (0 is a perfect match).
+	 */
+	Match_Distance = 1000
+	/**
+	 * When deleting a large block of text (over ~64 characters), how close do
+	 * the contents have to be to match the expected contents. (0 = perfection,
+	 * 1 = very loose).  Note that Match_Threshold controls how closely the end
+	 * points of a delete need to match.
+	 */
+	Patch_DeleteThreshold = 0.5
+	/** Chunk size for context length */
+	Patch_Margin = 4
+	/** The number of bits in an int */
+	Match_MaxBits = 32
 
 	/**
 	 * Find the differences between two texts.  Simplifies the problem by stripping
@@ -567,7 +460,7 @@ export class DiffMatchPatch {
 					chars += String.fromCharCode(lineHash[line])
 				} else {
 					if (lineArrayLength === maxLines) {
-						// Bail out at 0xffff because
+						// Bail out at 0xFFFF because
 						// String.fromCharCode(0x10000) === String.fromCharCode(0)
 						line = text.substring(lineStart)
 						lineEnd = text.length
@@ -1471,7 +1364,7 @@ export class DiffMatchPatch {
 	 * @param {string} text1 Source string for the diff.
 	 * @param {string} delta Delta text.
 	 * @returns {Diff[]} Array of diff tuples.
-	 * @throws {!Error} If invalid input.
+	 * @throws {Error} If invalid input.
 	 */
 	diff_fromDelta(text1, delta) {
 		const diffs = []
@@ -1569,7 +1462,7 @@ export class DiffMatchPatch {
 		 * Accesses loc and pattern through being a closure.
 		 * @param {number} e Number of errors in match.
 		 * @param {number} x Location of match.
-		 * @returns {number} Overall score for match (0.0 = good, 1.0 = bad).
+		 * @returns {number} Overall score for match (0 = good, 1 = bad).
 		 * @protected
 		 *
 		 * (Must be arrow function to close around both params and `this`)
@@ -1579,7 +1472,7 @@ export class DiffMatchPatch {
 			const proximity = Math.abs(loc - x)
 			if (!this.Match_Distance) {
 				// Dodge divide by zero error.
-				return proximity ? 1.0 : accuracy
+				return proximity ? 1 : accuracy
 			}
 			return accuracy + (proximity / this.Match_Distance)
 		}
@@ -2177,7 +2070,7 @@ export class DiffMatchPatch {
 	 * Parse a textual representation of patches and return a list of Patch objects.
 	 * @param {string} textline Text representation of patches.
 	 * @returns {Patch[]} Array of Patch objects.
-	 * @throws {!Error} If invalid input.
+	 * @throws {Error} If invalid input.
 	 */
 	patch_fromText(textline) {
 		/** @type {Patch[]} */
