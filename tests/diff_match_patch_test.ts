@@ -21,7 +21,16 @@ import { Diff, DiffMatchPatch, DiffOperation, Patch, segmenters } from '../src/m
 
 const dmp = new DiffMatchPatch()
 
-// DIFF TEST FUNCTIONS
+type DiffLike = Diff | [DiffOperation, string]
+
+function makeDiffs(arr: DiffLike[]) {
+	// https://github.com/microsoft/TypeScript/issues/42033
+	return arr.map(({ 0: op, 1: text }) => new Diff(op, text))
+}
+
+function assertDiffsEqual(d1: DiffLike[], d2: DiffLike[]) {
+	assertEquals(makeDiffs(d1), makeDiffs(d2))
+}
 
 Deno.test('DiffCommonPrefix', function testDiffCommonPrefix() {
 	// Detect any common prefix.
@@ -171,11 +180,11 @@ Deno.test('DiffCharsToLines', function testDiffCharsToLines() {
 	const diff_linesToChars_ = dmp['diff_linesToChars_'].bind(dmp)
 
 	// Convert chars up to lines.
-	let diffs = _diffs([[DiffOperation.Equal, '\x01\x02\x01'], [DiffOperation.Insert, '\x02\x01\x02']])
+	let diffs = makeDiffs([[DiffOperation.Equal, '\x01\x02\x01'], [DiffOperation.Insert, '\x02\x01\x02']])
 
 	diff_charsToLines_(diffs, ['', 'alpha\n', 'beta\n'])
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'alpha\nbeta\nalpha\n'], [DiffOperation.Insert, 'beta\nalpha\nbeta\n']]),
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'alpha\nbeta\nalpha\n'], [DiffOperation.Insert, 'beta\nalpha\nbeta\n']],
 		diffs,
 	)
 
@@ -208,42 +217,38 @@ Deno.test('DiffCharsToLines', function testDiffCharsToLines() {
 	assertEquals(chars, diffs[0][1])
 })
 
-function _diffs(arr: [DiffOperation, string][]) {
-	return arr.map(([op, text]) => new Diff(op, text))
-}
-
 Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 	// Cleanup a messy diff.
 	// Null case.
 	let diffs: Diff[] = []
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([]), diffs)
+	assertDiffsEqual([], diffs)
 
 	// No change case.
-	diffs = _diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'c']])
+	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'c']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'c']]),
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'c']],
 		diffs,
 	)
 
 	// Merge equalities.
-	diffs = _diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Equal, 'b'], [DiffOperation.Equal, 'c']])
+	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Equal, 'b'], [DiffOperation.Equal, 'c']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Equal, 'abc']]), diffs)
+	assertDiffsEqual([[DiffOperation.Equal, 'abc']], diffs)
 
 	// Merge deletions.
-	diffs = _diffs([[DiffOperation.Delete, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Delete, 'c']])
+	diffs = makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Delete, 'c']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abc']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abc']], diffs)
 
 	// Merge insertions.
-	diffs = _diffs([[DiffOperation.Insert, 'a'], [DiffOperation.Insert, 'b'], [DiffOperation.Insert, 'c']])
+	diffs = makeDiffs([[DiffOperation.Insert, 'a'], [DiffOperation.Insert, 'b'], [DiffOperation.Insert, 'c']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Insert, 'abc']]), diffs)
+	assertDiffsEqual([[DiffOperation.Insert, 'abc']], diffs)
 
 	// Merge interweave.
-	diffs = _diffs([
+	diffs = makeDiffs([
 		[DiffOperation.Delete, 'a'],
 		[DiffOperation.Insert, 'b'],
 		[DiffOperation.Delete, 'c'],
@@ -255,71 +260,71 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 		],
 	])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'ac'], [DiffOperation.Insert, 'bd'], [DiffOperation.Equal, 'ef']]),
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'ac'], [DiffOperation.Insert, 'bd'], [DiffOperation.Equal, 'ef']],
 		diffs,
 	)
 
 	// Prefix and suffix detection.
-	diffs = _diffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'abc'], [DiffOperation.Delete, 'dc']])
+	diffs = makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'abc'], [DiffOperation.Delete, 'dc']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'd'], [DiffOperation.Insert, 'b'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'd'], [DiffOperation.Insert, 'b'], [
 			DiffOperation.Equal,
 			'c',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Prefix and suffix detection with equalities.
-	diffs = _diffs([[DiffOperation.Equal, 'x'], [DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'abc'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'x'], [DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'abc'], [
 		DiffOperation.Delete,
 		'dc',
 	], [DiffOperation.Equal, 'y']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'xa'], [DiffOperation.Delete, 'd'], [DiffOperation.Insert, 'b'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'xa'], [DiffOperation.Delete, 'd'], [DiffOperation.Insert, 'b'], [
 			DiffOperation.Equal,
 			'cy',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Slide edit left.
-	diffs = _diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Insert, 'ba'], [DiffOperation.Equal, 'c']])
+	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Insert, 'ba'], [DiffOperation.Equal, 'c']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'ac']]), diffs)
+	assertDiffsEqual([[DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'ac']], diffs)
 
 	// Slide edit right.
-	diffs = _diffs([[DiffOperation.Equal, 'c'], [DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'a']])
+	diffs = makeDiffs([[DiffOperation.Equal, 'c'], [DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'a']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Equal, 'ca'], [DiffOperation.Insert, 'ba']]), diffs)
+	assertDiffsEqual([[DiffOperation.Equal, 'ca'], [DiffOperation.Insert, 'ba']], diffs)
 
 	// Slide edit left recursive.
-	diffs = _diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Equal, 'c'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'b'], [DiffOperation.Equal, 'c'], [
 		DiffOperation.Delete,
 		'ac',
 	], [DiffOperation.Equal, 'x']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'acx']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'acx']], diffs)
 
 	// Slide edit right recursive.
-	diffs = _diffs([[DiffOperation.Equal, 'x'], [DiffOperation.Delete, 'ca'], [DiffOperation.Equal, 'c'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'x'], [DiffOperation.Delete, 'ca'], [DiffOperation.Equal, 'c'], [
 		DiffOperation.Delete,
 		'b',
 	], [DiffOperation.Equal, 'a']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Equal, 'xca'], [DiffOperation.Delete, 'cba']]), diffs)
+	assertDiffsEqual([[DiffOperation.Equal, 'xca'], [DiffOperation.Delete, 'cba']], diffs)
 
 	// Empty merge.
-	diffs = _diffs([[DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'c']])
+	diffs = makeDiffs([[DiffOperation.Delete, 'b'], [DiffOperation.Insert, 'ab'], [DiffOperation.Equal, 'c']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'bc']]), diffs)
+	assertDiffsEqual([[DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'bc']], diffs)
 
 	// Empty equality.
-	diffs = _diffs([[DiffOperation.Equal, ''], [DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'b']])
+	diffs = makeDiffs([[DiffOperation.Equal, ''], [DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'b']])
 	dmp.diff_cleanupMerge(diffs)
-	assertEquals(_diffs([[DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'b']]), diffs)
+	assertDiffsEqual([[DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'b']], diffs)
 })
 
 Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossless() {
@@ -330,82 +335,82 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 	assertEquals([], diffs)
 
 	// Blank lines.
-	diffs = _diffs([[DiffOperation.Equal, 'AAA\r\n\r\nBBB'], [DiffOperation.Insert, '\r\nDDD\r\n\r\nBBB'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'AAA\r\n\r\nBBB'], [DiffOperation.Insert, '\r\nDDD\r\n\r\nBBB'], [
 		DiffOperation.Equal,
 		'\r\nEEE',
 	]])
 	dmp.diff_cleanupSemanticLossless(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'AAA\r\n\r\n'], [DiffOperation.Insert, 'BBB\r\nDDD\r\n\r\n'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'AAA\r\n\r\n'], [DiffOperation.Insert, 'BBB\r\nDDD\r\n\r\n'], [
 			DiffOperation.Equal,
 			'BBB\r\nEEE',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Line boundaries.
-	diffs = _diffs([[DiffOperation.Equal, 'AAA\r\nBBB'], [DiffOperation.Insert, ' DDD\r\nBBB'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'AAA\r\nBBB'], [DiffOperation.Insert, ' DDD\r\nBBB'], [
 		DiffOperation.Equal,
 		' EEE',
 	]])
 	dmp.diff_cleanupSemanticLossless(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'AAA\r\n'], [DiffOperation.Insert, 'BBB DDD\r\n'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'AAA\r\n'], [DiffOperation.Insert, 'BBB DDD\r\n'], [
 			DiffOperation.Equal,
 			'BBB EEE',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Word boundaries.
-	diffs = _diffs([[DiffOperation.Equal, 'The c'], [DiffOperation.Insert, 'ow and the c'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'The c'], [DiffOperation.Insert, 'ow and the c'], [
 		DiffOperation.Equal,
 		'at.',
 	]])
 	dmp.diff_cleanupSemanticLossless(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'The '], [DiffOperation.Insert, 'cow and the '], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'The '], [DiffOperation.Insert, 'cow and the '], [
 			DiffOperation.Equal,
 			'cat.',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Alphanumeric boundaries.
-	diffs = _diffs([[DiffOperation.Equal, 'The-c'], [DiffOperation.Insert, 'ow-and-the-c'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'The-c'], [DiffOperation.Insert, 'ow-and-the-c'], [
 		DiffOperation.Equal,
 		'at.',
 	]])
 	dmp.diff_cleanupSemanticLossless(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'The-'], [DiffOperation.Insert, 'cow-and-the-'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'The-'], [DiffOperation.Insert, 'cow-and-the-'], [
 			DiffOperation.Equal,
 			'cat.',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Hitting the start.
-	diffs = _diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'ax']])
+	diffs = makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'ax']])
 	dmp.diff_cleanupSemanticLossless(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'aax']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'aax']], diffs)
 
 	// Hitting the end.
-	diffs = _diffs([[DiffOperation.Equal, 'xa'], [DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'a']])
+	diffs = makeDiffs([[DiffOperation.Equal, 'xa'], [DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'a']])
 	dmp.diff_cleanupSemanticLossless(diffs)
-	assertEquals(_diffs([[DiffOperation.Equal, 'xaa'], [DiffOperation.Delete, 'a']]), diffs)
+	assertDiffsEqual([[DiffOperation.Equal, 'xaa'], [DiffOperation.Delete, 'a']], diffs)
 
 	// Sentence boundaries.
-	diffs = _diffs([[DiffOperation.Equal, 'The xxx. The '], [DiffOperation.Insert, 'zzz. The '], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'The xxx. The '], [DiffOperation.Insert, 'zzz. The '], [
 		DiffOperation.Equal,
 		'yyy.',
 	]])
 	dmp.diff_cleanupSemanticLossless(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'The xxx.'], [DiffOperation.Insert, ' The zzz.'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'The xxx.'], [DiffOperation.Insert, ' The zzz.'], [
 			DiffOperation.Equal,
 			' The yyy.',
-		]]),
+		]],
 		diffs,
 	)
 })
@@ -418,48 +423,48 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 	assertEquals([], diffs)
 
 	// No elimination #1.
-	diffs = _diffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, 'cd'], [DiffOperation.Equal, '12'], [
+	diffs = makeDiffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, 'cd'], [DiffOperation.Equal, '12'], [
 		DiffOperation.Delete,
 		'e',
 	]])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, 'cd'], [DiffOperation.Equal, '12'], [
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, 'cd'], [DiffOperation.Equal, '12'], [
 			DiffOperation.Delete,
 			'e',
-		]]),
+		]],
 		diffs,
 	)
 
 	// No elimination #2.
-	diffs = _diffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'ABC'], [DiffOperation.Equal, '1234'], [
+	diffs = makeDiffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'ABC'], [DiffOperation.Equal, '1234'], [
 		DiffOperation.Delete,
 		'wxyz',
 	]])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'ABC'], [DiffOperation.Equal, '1234'], [
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'ABC'], [DiffOperation.Equal, '1234'], [
 			DiffOperation.Delete,
 			'wxyz',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Simple elimination.
-	diffs = _diffs([[DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'b'], [DiffOperation.Delete, 'c']])
+	diffs = makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Equal, 'b'], [DiffOperation.Delete, 'c']])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'b']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, 'b']], diffs)
 
 	// Backpass elimination.
-	diffs = _diffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Equal, 'cd'], [DiffOperation.Delete, 'e'], [
+	diffs = makeDiffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Equal, 'cd'], [DiffOperation.Delete, 'e'], [
 		DiffOperation.Equal,
 		'f',
 	], [DiffOperation.Insert, 'g']])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abcdef'], [DiffOperation.Insert, 'cdfg']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abcdef'], [DiffOperation.Insert, 'cdfg']], diffs)
 
 	// Multiple eliminations.
-	diffs = _diffs([
+	diffs = makeDiffs([
 		[DiffOperation.Insert, '1'],
 		[DiffOperation.Equal, 'A'],
 		[DiffOperation.Delete, 'B'],
@@ -471,45 +476,45 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		[DiffOperation.Insert, '2'],
 	])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'AB_AB'], [DiffOperation.Insert, '1A2_1A2']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'AB_AB'], [DiffOperation.Insert, '1A2_1A2']], diffs)
 
 	// Word boundaries.
-	diffs = _diffs([[DiffOperation.Equal, 'The c'], [DiffOperation.Delete, 'ow and the c'], [
+	diffs = makeDiffs([[DiffOperation.Equal, 'The c'], [DiffOperation.Delete, 'ow and the c'], [
 		DiffOperation.Equal,
 		'at.',
 	]])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'The '], [DiffOperation.Delete, 'cow and the '], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'The '], [DiffOperation.Delete, 'cow and the '], [
 			DiffOperation.Equal,
 			'cat.',
-		]]),
+		]],
 		diffs,
 	)
 
 	// No overlap elimination.
-	diffs = _diffs([[DiffOperation.Delete, 'abcxx'], [DiffOperation.Insert, 'xxdef']])
+	diffs = makeDiffs([[DiffOperation.Delete, 'abcxx'], [DiffOperation.Insert, 'xxdef']])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abcxx'], [DiffOperation.Insert, 'xxdef']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abcxx'], [DiffOperation.Insert, 'xxdef']], diffs)
 
 	// Overlap elimination.
-	diffs = _diffs([[DiffOperation.Delete, 'abcxxx'], [DiffOperation.Insert, 'xxxdef']])
+	diffs = makeDiffs([[DiffOperation.Delete, 'abcxxx'], [DiffOperation.Insert, 'xxxdef']])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'xxx'], [DiffOperation.Insert, 'def']]),
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'xxx'], [DiffOperation.Insert, 'def']],
 		diffs,
 	)
 
 	// Reverse overlap elimination.
-	diffs = _diffs([[DiffOperation.Delete, 'xxxabc'], [DiffOperation.Insert, 'defxxx']])
+	diffs = makeDiffs([[DiffOperation.Delete, 'xxxabc'], [DiffOperation.Insert, 'defxxx']])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Insert, 'def'], [DiffOperation.Equal, 'xxx'], [DiffOperation.Delete, 'abc']]),
+	assertDiffsEqual(
+		[[DiffOperation.Insert, 'def'], [DiffOperation.Equal, 'xxx'], [DiffOperation.Delete, 'abc']],
 		diffs,
 	)
 
 	// Two overlap eliminations.
-	diffs = _diffs([[DiffOperation.Delete, 'abcd1212'], [DiffOperation.Insert, '1212efghi'], [
+	diffs = makeDiffs([[DiffOperation.Delete, 'abcd1212'], [DiffOperation.Insert, '1212efghi'], [
 		DiffOperation.Equal,
 		'----',
 	], [
@@ -520,8 +525,8 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 		'3BC',
 	]])
 	dmp.diff_cleanupSemantic(diffs)
-	assertEquals(
-		_diffs([
+	assertDiffsEqual(
+		[
 			[DiffOperation.Delete, 'abcd'],
 			[DiffOperation.Equal, '1212'],
 			[DiffOperation.Insert, 'efghi'],
@@ -529,7 +534,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 			[DiffOperation.Delete, 'A'],
 			[DiffOperation.Equal, '3'],
 			[DiffOperation.Insert, 'BC'],
-		]),
+		],
 		diffs,
 	)
 })
@@ -543,40 +548,40 @@ Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 	assertEquals([], diffs)
 
 	// No elimination.
-	diffs = _diffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
+	diffs = makeDiffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
 		DiffOperation.Delete,
 		'cd',
 	], [DiffOperation.Insert, '34']])
 	dmp.diff_cleanupEfficiency(diffs)
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
 			DiffOperation.Delete,
 			'cd',
 		], [
 			DiffOperation.Insert,
 			'34',
-		]]),
+		]],
 		diffs,
 	)
 
 	// Four-edit elimination.
-	diffs = _diffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'xyz'], [
+	diffs = makeDiffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'xyz'], [
 		DiffOperation.Delete,
 		'cd',
 	], [DiffOperation.Insert, '34']])
 	dmp.diff_cleanupEfficiency(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abxyzcd'], [DiffOperation.Insert, '12xyz34']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abxyzcd'], [DiffOperation.Insert, '12xyz34']], diffs)
 
 	// Three-edit elimination.
-	diffs = _diffs([[DiffOperation.Insert, '12'], [DiffOperation.Equal, 'x'], [DiffOperation.Delete, 'cd'], [
+	diffs = makeDiffs([[DiffOperation.Insert, '12'], [DiffOperation.Equal, 'x'], [DiffOperation.Delete, 'cd'], [
 		DiffOperation.Insert,
 		'34',
 	]])
 	dmp.diff_cleanupEfficiency(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'xcd'], [DiffOperation.Insert, '12x34']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'xcd'], [DiffOperation.Insert, '12x34']], diffs)
 
 	// Backpass elimination.
-	diffs = _diffs([
+	diffs = makeDiffs([
 		[DiffOperation.Delete, 'ab'],
 		[DiffOperation.Insert, '12'],
 		[DiffOperation.Equal, 'xy'],
@@ -589,22 +594,22 @@ Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 		[DiffOperation.Insert, '56'],
 	])
 	dmp.diff_cleanupEfficiency(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abxyzcd'], [DiffOperation.Insert, '12xy34z56']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abxyzcd'], [DiffOperation.Insert, '12xy34z56']], diffs)
 
 	// High cost elimination.
 	dmp.Diff_EditCost = 5
-	diffs = _diffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
+	diffs = makeDiffs([[DiffOperation.Delete, 'ab'], [DiffOperation.Insert, '12'], [DiffOperation.Equal, 'wxyz'], [
 		DiffOperation.Delete,
 		'cd',
 	], [DiffOperation.Insert, '34']])
 	dmp.diff_cleanupEfficiency(diffs)
-	assertEquals(_diffs([[DiffOperation.Delete, 'abwxyzcd'], [DiffOperation.Insert, '12wxyz34']]), diffs)
+	assertDiffsEqual([[DiffOperation.Delete, 'abwxyzcd'], [DiffOperation.Insert, '12wxyz34']], diffs)
 	dmp.Diff_EditCost = 4
 })
 
 Deno.test('DiffPrettyHtml', function testDiffPrettyHtml() {
 	// Pretty print.
-	const diffs = _diffs([[DiffOperation.Equal, 'a\n'], [DiffOperation.Delete, '<B>b</B>'], [
+	const diffs = makeDiffs([[DiffOperation.Equal, 'a\n'], [DiffOperation.Delete, '<B>b</B>'], [
 		DiffOperation.Insert,
 		'c&d',
 	]])
@@ -616,7 +621,7 @@ Deno.test('DiffPrettyHtml', function testDiffPrettyHtml() {
 
 Deno.test('DiffText', function testDiffText() {
 	// Compute the source and destination texts.
-	const diffs = _diffs([
+	const diffs = makeDiffs([
 		[DiffOperation.Equal, 'jump'],
 		[DiffOperation.Delete, 's'],
 		[DiffOperation.Insert, 'ed'],
@@ -632,7 +637,7 @@ Deno.test('DiffText', function testDiffText() {
 
 Deno.test('DiffDelta', function testDiffDelta() {
 	// Convert a diff into delta string.
-	let diffs = _diffs([
+	let diffs = makeDiffs([
 		[DiffOperation.Equal, 'jump'],
 		[DiffOperation.Delete, 's'],
 		[DiffOperation.Insert, 'ed'],
@@ -676,7 +681,7 @@ Deno.test('DiffDelta', function testDiffDelta() {
 	}
 
 	// Test deltas with special characters.
-	diffs = _diffs([[DiffOperation.Equal, '\u0680 \x00 \t %'], [DiffOperation.Delete, '\u0681 \x01 \n ^'], [
+	diffs = makeDiffs([[DiffOperation.Equal, '\u0680 \x00 \t %'], [DiffOperation.Delete, '\u0681 \x01 \n ^'], [
 		DiffOperation.Insert,
 		'\u0682 \x02 \\ |',
 	]])
@@ -690,7 +695,7 @@ Deno.test('DiffDelta', function testDiffDelta() {
 	assertEquals(diffs, dmp.diff_fromDelta(text1, delta))
 
 	// Verify pool of unchanged characters.
-	diffs = _diffs([[DiffOperation.Insert, "A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # "]])
+	diffs = makeDiffs([[DiffOperation.Insert, "A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # "]])
 	const text2 = dmp.diff_text2(diffs)
 	assertEquals("A-Z a-z 0-9 - _ . ! ~ * ' ( ) ; / ? : @ & = + $ , # ", text2)
 
@@ -705,7 +710,7 @@ Deno.test('DiffDelta', function testDiffDelta() {
 	for (let i = 0; i < 14; i++) {
 		a += a
 	}
-	diffs = _diffs([[DiffOperation.Insert, a]])
+	diffs = makeDiffs([[DiffOperation.Insert, a]])
 	delta = dmp.diff_toDelta(diffs)
 	assertEquals('+' + a, delta)
 
@@ -719,7 +724,7 @@ Deno.test('DiffXIndex', function testDiffXIndex() {
 	assertEquals(
 		5,
 		dmp.diff_xIndex(
-			_diffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, '1234'], [DiffOperation.Equal, 'xyz']]),
+			makeDiffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, '1234'], [DiffOperation.Equal, 'xyz']]),
 			2,
 		),
 	)
@@ -728,7 +733,7 @@ Deno.test('DiffXIndex', function testDiffXIndex() {
 	assertEquals(
 		1,
 		dmp.diff_xIndex(
-			_diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '1234'], [DiffOperation.Equal, 'xyz']]),
+			makeDiffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '1234'], [DiffOperation.Equal, 'xyz']]),
 			3,
 		),
 	)
@@ -738,7 +743,7 @@ Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
 	// Levenshtein with trailing equality.
 	assertEquals(
 		4,
-		dmp.diff_levenshtein(_diffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, '1234'], [
+		dmp.diff_levenshtein(makeDiffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Insert, '1234'], [
 			DiffOperation.Equal,
 			'xyz',
 		]])),
@@ -746,7 +751,7 @@ Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
 	// Levenshtein with leading equality.
 	assertEquals(
 		4,
-		dmp.diff_levenshtein(_diffs([[DiffOperation.Equal, 'xyz'], [DiffOperation.Delete, 'abc'], [
+		dmp.diff_levenshtein(makeDiffs([[DiffOperation.Equal, 'xyz'], [DiffOperation.Delete, 'abc'], [
 			DiffOperation.Insert,
 			'1234',
 		]])),
@@ -754,7 +759,7 @@ Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
 	// Levenshtein with middle equality.
 	assertEquals(
 		7,
-		dmp.diff_levenshtein(_diffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'xyz'], [
+		dmp.diff_levenshtein(makeDiffs([[DiffOperation.Delete, 'abc'], [DiffOperation.Equal, 'xyz'], [
 			DiffOperation.Insert,
 			'1234',
 		]])),
@@ -768,20 +773,20 @@ Deno.test('DiffBisect', function testDiffBisect() {
 	// Since the resulting diff hasn't been normalized, it would be ok if
 	// the insertion and deletion pairs are swapped.
 	// If the order changes, tweak this test as required.
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'c'], [DiffOperation.Insert, 'm'], [DiffOperation.Equal, 'a'], [
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'c'], [DiffOperation.Insert, 'm'], [DiffOperation.Equal, 'a'], [
 			DiffOperation.Delete,
 			't',
 		], [
 			DiffOperation.Insert,
 			'p',
-		]]),
+		]],
 		dmp['diff_bisect_'](a, b, Number.MAX_VALUE),
 	)
 
 	// Timeout.
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'cat'], [DiffOperation.Insert, 'map']]),
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'cat'], [DiffOperation.Insert, 'map']],
 		dmp['diff_bisect_'](a, b, 0),
 	)
 })
@@ -807,41 +812,41 @@ Deno.test('DiffMain', function testDiffMain() {
 	assertEquals([], dmp.diff_main('', '', false))
 
 	// Equality.
-	assertEquals(_diffs([[DiffOperation.Equal, 'abc']]), dmp.diff_main('abc', 'abc', false))
+	assertDiffsEqual([[DiffOperation.Equal, 'abc']], dmp.diff_main('abc', 'abc', false))
 
 	// Simple insertion.
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'ab'], [DiffOperation.Insert, '123'], [DiffOperation.Equal, 'c']]),
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'ab'], [DiffOperation.Insert, '123'], [DiffOperation.Equal, 'c']],
 		dmp.diff_main('abc', 'ab123c', false),
 	)
 
 	// Simple deletion.
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '123'], [DiffOperation.Equal, 'bc']]),
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '123'], [DiffOperation.Equal, 'bc']],
 		dmp.diff_main('a123bc', 'abc', false),
 	)
 
 	// Two insertions.
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Insert, '123'], [DiffOperation.Equal, 'b'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'a'], [DiffOperation.Insert, '123'], [DiffOperation.Equal, 'b'], [
 			DiffOperation.Insert,
 			'456',
 		], [
 			DiffOperation.Equal,
 			'c',
-		]]),
+		]],
 		dmp.diff_main('abc', 'a123b456c', false),
 	)
 
 	// Two deletions.
-	assertEquals(
-		_diffs([[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '123'], [DiffOperation.Equal, 'b'], [
+	assertDiffsEqual(
+		[[DiffOperation.Equal, 'a'], [DiffOperation.Delete, '123'], [DiffOperation.Equal, 'b'], [
 			DiffOperation.Delete,
 			'456',
 		], [
 			DiffOperation.Equal,
 			'c',
-		]]),
+		]],
 		dmp.diff_main('a123b456c', 'abc', false),
 	)
 
@@ -849,10 +854,10 @@ Deno.test('DiffMain', function testDiffMain() {
 	// Switch off the timeout.
 	dmp.Diff_Timeout = 0
 	// Simple cases.
-	assertEquals(_diffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'b']]), dmp.diff_main('a', 'b', false))
+	assertDiffsEqual([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, 'b']], dmp.diff_main('a', 'b', false))
 
-	assertEquals(
-		_diffs([
+	assertDiffsEqual(
+		[
 			[DiffOperation.Delete, 'Apple'],
 			[DiffOperation.Insert, 'Banana'],
 			[DiffOperation.Equal, 's are a'],
@@ -861,41 +866,41 @@ Deno.test('DiffMain', function testDiffMain() {
 				DiffOperation.Equal,
 				' fruit.',
 			],
-		]),
+		],
 		dmp.diff_main('Apples are a fruit.', 'Bananas are also fruit.', false),
 	)
 
-	assertEquals(
-		_diffs([[DiffOperation.Delete, 'a'], [DiffOperation.Insert, '\u0680'], [DiffOperation.Equal, 'x'], [
+	assertDiffsEqual(
+		[[DiffOperation.Delete, 'a'], [DiffOperation.Insert, '\u0680'], [DiffOperation.Equal, 'x'], [
 			DiffOperation.Delete,
 			'\t',
 		], [
 			DiffOperation.Insert,
 			'\0',
-		]]),
+		]],
 		dmp.diff_main('ax\t', '\u0680x\0', false),
 	)
 
 	// Overlaps.
-	assertEquals(
-		_diffs([
+	assertDiffsEqual(
+		[
 			[DiffOperation.Delete, '1'],
 			[DiffOperation.Equal, 'a'],
 			[DiffOperation.Delete, 'y'],
 			[DiffOperation.Equal, 'b'],
 			[DiffOperation.Delete, '2'],
 			[DiffOperation.Insert, 'xab'],
-		]),
+		],
 		dmp.diff_main('1ayb2', 'abxab', false),
 	)
 
-	assertEquals(
-		_diffs([[DiffOperation.Insert, 'xaxcx'], [DiffOperation.Equal, 'abc'], [DiffOperation.Delete, 'y']]),
+	assertDiffsEqual(
+		[[DiffOperation.Insert, 'xaxcx'], [DiffOperation.Equal, 'abc'], [DiffOperation.Delete, 'y']],
 		dmp.diff_main('abcy', 'xaxcxabc', false),
 	)
 
-	assertEquals(
-		_diffs([
+	assertDiffsEqual(
+		[
 			[DiffOperation.Delete, 'ABCD'],
 			[DiffOperation.Equal, 'a'],
 			[DiffOperation.Delete, '='],
@@ -905,19 +910,19 @@ Deno.test('DiffMain', function testDiffMain() {
 			[DiffOperation.Insert, '-'],
 			[DiffOperation.Equal, 'efghijklmnopqrs'],
 			[DiffOperation.Delete, 'EFGHIJKLMNOefg'],
-		]),
+		],
 		dmp.diff_main('ABCDa=bcd=efghijklmnopqrsEFGHIJKLMNOefg', 'a-bcd-efghijklmnopqrs', false),
 	)
 
 	// Large equality.
-	assertEquals(
-		_diffs([[DiffOperation.Insert, ' '], [DiffOperation.Equal, 'a'], [DiffOperation.Insert, 'nd'], [
+	assertDiffsEqual(
+		[[DiffOperation.Insert, ' '], [DiffOperation.Equal, 'a'], [DiffOperation.Insert, 'nd'], [
 			DiffOperation.Equal,
 			' [[Pennsylvania]]',
 		], [
 			DiffOperation.Delete,
 			' and [[New',
-		]]),
+		]],
 		dmp.diff_main('a [[Pennsylvania]] and [[New', ' and [[Pennsylvania]]', false),
 	)
 
@@ -1070,7 +1075,7 @@ Deno.test('PatchObj', function testPatchObj() {
 	p.start2 = 21
 	p.length1 = 18
 	p.length2 = 17
-	p.diffs = _diffs([
+	p.diffs = makeDiffs([
 		[DiffOperation.Equal, 'jump'],
 		[DiffOperation.Delete, 's'],
 		[DiffOperation.Insert, 'ed'],
@@ -1185,7 +1190,10 @@ Deno.test('PatchMake', function testPatchMake() {
 	)
 
 	// Character decoding.
-	diffs = _diffs([[DiffOperation.Delete, "`1234567890-=[]\\;',./"], [DiffOperation.Insert, '~!@#$%^&*()_+{}|:"<>?']])
+	diffs = makeDiffs([[DiffOperation.Delete, "`1234567890-=[]\\;',./"], [
+		DiffOperation.Insert,
+		'~!@#$%^&*()_+{}|:"<>?',
+	]])
 	assertEquals(
 		diffs,
 		dmp.patch_fromText(
@@ -1367,40 +1375,63 @@ Deno.test('PatchApply', function testPatchApply() {
 
 Deno.test('diff', async (t) => {
 	await t.step('chars', () => {
-		assertEquals(
-			_diffs([[-1, 'abc'], [0, 'd'], [1, 'efg']]),
+		assertDiffsEqual(
+			[[-1, 'abc'], [0, 'd'], [1, 'efg']],
 			dmp.diff('abcd', 'defg'),
 		)
 	})
 
 	await t.step('non-BMP', async (t) => {
 		await t.step('emojis', () => {
-			assertEquals(
-				_diffs([[-1, '💫'], [1, '💩']]),
+			assertDiffsEqual(
+				[[-1, '💫'], [1, '💩']],
 				dmp.diff('💫', '💩'),
 			)
 		})
 
 		await t.step('can opt into old code unit behavior', () => {
-			assertEquals(
-				_diffs([[0, '\ud83d'], [-1, '\udcab'], [1, '\udca9']]),
-				dmp.diff('💫', '💩', { segmenter: segmenters.codeUnit }),
+			const segmenter = (str: string) => str.split('')
+
+			assertDiffsEqual(
+				[[0, '\ud83d'], [-1, '\udcab'], [1, '\udca9']],
+				dmp.diff('💫', '💩', { segmenter }),
 			)
 
 			assertEquals(
 				dmp.diff_main('💫', '💩'),
-				dmp.diff('💫', '💩', { segmenter: segmenters.codeUnit }),
+				dmp.diff('💫', '💩', { segmenter }),
 			)
 		})
 	})
 
-	await t.step('words', () => {
-		const segmenter = new Intl.Segmenter('en-US', { granularity: 'word' })
+	await t.step('words', async (t) => {
+		await t.step('default word segmenter', () => {
+			assertDiffsEqual(
+				[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world!']],
+				dmp.diff('Hello, world!', 'Goodbye, world!', { segmenter: segmenters.word }),
+			)
+		})
 
-		assertEquals(
-			_diffs([[-1, 'Hello'], [1, 'Goodbye'], [0, ', world!']]),
-			dmp.diff('Hello, world!', 'Goodbye, world!', { segmenter }),
-		)
+		await t.step('xml', () => {
+			assertDiffsEqual(
+				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
+				dmp.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
+			)
+
+			assertDiffsEqual(
+				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
+				dmp.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
+			)
+		})
+
+		await t.step('custom word segmenter', () => {
+			const segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' })
+
+			assertDiffsEqual(
+				[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
+				dmp.diff('两只小蜜蜂', '两只老虎', { segmenter }),
+			)
+		})
 	})
 
 	await t.step('parity with line diff function from docs', () => {
@@ -1421,6 +1452,46 @@ Deno.test('diff', async (t) => {
 		assertEquals(
 			diffLineMode(str1, str2),
 			dmp.diff(str1, str2, { segmenter: segmenters.line }),
+		)
+	})
+})
+
+Deno.test('diffWithin', async (t) => {
+	await t.step('chars', () => {
+		const text1 = `Line One
+Line Two
+Line Three
+`
+		const text2 = `Line One
+Line 2
+Line Three
+Line Four
+Line Five
+`
+
+		const diffs = dmp.diff(text1, text2, {
+			segmenter: segmenters.line,
+			join: false,
+		})
+
+		const d = dmp.diffWithin(diffs, {
+			segmenter: segmenters.word,
+		})
+
+		assertEquals(
+			d,
+			[
+				new Diff(0, 'Line One\n'),
+				[
+					new Diff(0, 'Line '),
+					new Diff(-1, 'Two'),
+					new Diff(1, '2'),
+					new Diff(0, '\n'),
+				],
+				new Diff(0, 'Line Three\n'),
+				new Diff(1, 'Line Four\n'),
+				new Diff(1, 'Line Five\n'),
+			],
 		)
 	})
 })
