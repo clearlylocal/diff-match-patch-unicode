@@ -46,7 +46,7 @@ assertDiffsEqual(
 	[[-1, 'Hello, world! 💫'], [1, 'Goodbye, world! 💩']],
 )
 
-// custom UTF-16 code-unit diff (equivalent to using `diff_main` directly... but less performant)
+// custom UTF-16 code-unit diff (equivalent to using `diffCodeUnits` directly... but less performant)
 assertDiffsEqual(
 	differ.diff(str1, str2, { segmenter: (str) => str.split('') }),
 	[[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! \ud83d'], [-1, '\udcab'], [1, '\udca9']],

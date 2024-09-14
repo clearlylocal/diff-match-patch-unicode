@@ -4,6 +4,7 @@ import { DiffMatchPatch, MAX_BMP_CODEPOINT, TWO_THIRDS_OF_MAX_BMP_CODEPOINT } fr
 type DiffOptions = {
 	segmenter: Segmenter
 	join: boolean
+	checkLines: boolean
 }
 
 type Segmenter = SimpleSegmenter | Intl.Segmenter
@@ -21,13 +22,28 @@ export const segmenters = {
 const defaultDiffOptions: DiffOptions = {
 	segmenter: segmenters.char,
 	join: true,
+	checkLines: false,
 }
 
-export class Differ extends DiffMatchPatch {
+export class Differ {
+	#dmp: DiffMatchPatch
+
+	constructor() {
+		this.#dmp = new DiffMatchPatch()
+	}
+
+	set diffTimeout(val: number) {
+		this.#dmp.Diff_Timeout = val
+	}
+	get diffTimeout() {
+		return this.#dmp.Diff_Timeout
+	}
+
 	/**
 	 * Diff two strings. Unicode-aware by default, including non-BMP characters.
 	 *
-	 * Pass a `segmenter` option to customize the units of calculation for the diff (char, line, etc).
+	 * Pass a `segmenter` option to customize the units of calculation for the diff (char, line, grapheme, sentence,
+	 * etc).
 	 *
 	 * @example
 	 * ```ts
@@ -46,7 +62,7 @@ export class Differ extends DiffMatchPatch {
 	 * differ.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }) // [0, '两只'], [-1, '小蜜蜂'], [1, '老虎']
 	 * // line diff
 	 * differ.diff(str1, str2, { segmenter: segmenters.line }) // [-1, "Hello, world! 💫"], [1, "Goodbye, world! 💩"]
-	 * // custom UTF-16 code-unit diff (equivalent to using `diff_main` directly... but less performant)
+	 * // custom UTF-16 code-unit diff (equivalent to using `diffCodeUnits` directly... but less performant)
 	 * differ.diff(str1, str2, { segmenter: (str) => str.split('') }) // [-1, "Hell"], [1, "G"], [0, "o"], [1, "odbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
 	 * ```
 	 */
@@ -56,13 +72,14 @@ export class Differ extends DiffMatchPatch {
 			return str1 ? [new Diff(DiffOperation.Equal, str1)] : []
 		}
 
-		const { segmenter, join } = { ...defaultDiffOptions, ...options }
+		const opts = { ...defaultDiffOptions, ...options }
+		const { segmenter, join, checkLines } = opts
 
 		if (
 			// if no surrogate pairs present, we're entirely within the BMP, so no need to encode
 			segmenter === segmenters.char && !/[\uD800-\uDBFF]/.test([str1, str2].join('\n'))
 		) {
-			return this.diff_main(str1, str2, false)
+			return this.diffCodeUnits(str1, str2, opts)
 		}
 
 		const segment = this.#toSegmentFn(segmenter)
@@ -72,7 +89,7 @@ export class Differ extends DiffMatchPatch {
 		const chars1 = codec.encode(segment(str1), TWO_THIRDS_OF_MAX_BMP_CODEPOINT)
 		const chars2 = codec.encode(segment(str2), MAX_BMP_CODEPOINT)
 
-		const diffs = this.diff_main(chars1, chars2, false, this.#deadline)
+		const diffs = this.#dmp.diff_main(chars1, chars2, checkLines, this.#deadline)
 
 		if (!join) {
 			return diffs.flatMap(
@@ -83,26 +100,74 @@ export class Differ extends DiffMatchPatch {
 		return diffs.map(({ op, text }) => new Diff(op, codec.decode(text).join(''))).filter((x) => x.text)
 	}
 
+	/**
+	 * Diff two strings by UTF-16 code unit. May not work for non-BMP characters. This is simply a wrapper around
+	 * diff-match-patch's `diff_main`.
+	 *
+	 * @example
+	 * ```ts
+	 * import { Differ, segmenters } from '@clearlylocal/diff-match-patch-unicode'
+	 *
+	 * const differ = new Differ()
+	 *
+	 * const str1 = 'Hello, world! 💫'
+	 * const str2 = 'Goodbye, world! 💩'
+	 * differ.diffCodeUnits(str1, str2) // [-1, "Hell"], [1, "G"], [0, "o"], [1, "odbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
+	 * ```
+	 */
+	diffCodeUnits(str1: string, str2: string, options?: Pick<Partial<DiffOptions>, 'checkLines'>): Diff[] {
+		const { checkLines } = { ...defaultDiffOptions, ...options }
+		return this.#dmp.diff_main(str1, str2, checkLines, this.#deadline)
+	}
+
 	#toSegmentFn(segmenter: Segmenter): SimpleSegmenter {
 		return segmenter instanceof Intl.Segmenter
 			? (str) => [...segmenter.segment(str)].map((x) => x.segment)
 			: segmenter
 	}
 
-	#deadline: number | undefined = undefined
-
+	#deadline: number | null = null
 	#timeboxed<T>(fn: () => T): T {
-		this.#deadline = new Date().valueOf() + this.Diff_Timeout * 1000
-		const val = fn()
-		this.#deadline = undefined
-		return val
+		try {
+			this.#deadline = new Date().valueOf() + this.#dmp.Diff_Timeout * 1000
+			return fn()
+		} finally {
+			this.#deadline = null
+		}
 	}
-	diffWithin(diffs: Diff[], options: Partial<DiffOptions>): (Diff | Diff[])[] {
+
+	/**
+	 * Convert an less-granular array of diffs to a 2d array of more-granular diffs-within-diffs.
+	 *
+	 * For example, get word diffs _within_ line diffs.
+	 *
+	 * @experimental
+	 *
+	 * @example
+	 * ```ts
+	 * const text1 = `Line One\nLine Two\nLine Three\n`
+	 * const text2 = `Line One\nLine 2\nLine Three\nLine Four\nLine Five\n`
+	 *
+	 * const diffs = differ.diff(text1, text2, { segmenter: segmenters.line, join: false })
+	 * const diff2d = differ.diffWithin(diffs, { segmenter: segmenters.word })
+	 *
+	 * assertDiffsEqual2d(
+	 * 	diff2d,
+	 * 	[
+	 * 		[[0, 'Line One\n']],
+	 * 		[[0, 'Line '], [-1, 'Two'], [1, '2'], [0, '\n']],
+	 * 		[[0, 'Line Three\n']],
+	 * 		[[1, 'Line Four\n']],
+	 * 		[[1, 'Line Five\n']],
+	 * 	],
+	 * )
+	 */
+	diffWithin(diffs: Diff[], options?: Partial<DiffOptions>): Diff[][] {
 		return this.#timeboxed(() => {
 			// avoid mutating input arr
 			diffs = diffs.map((d) => d.clone())
 
-			const out: (Diff | Diff[])[] = []
+			const out: Diff[][] = []
 
 			let ins = ''
 			let del = ''
@@ -110,10 +175,10 @@ export class Differ extends DiffMatchPatch {
 			for (const diff of diffs) {
 				switch (diff.op) {
 					case DiffOperation.Equal: {
-						if (del) out.push(new Diff(DiffOperation.Delete, del))
-						if (ins) out.push(new Diff(DiffOperation.Insert, ins))
+						if (del) out.push([new Diff(DiffOperation.Delete, del)])
+						if (ins) out.push([new Diff(DiffOperation.Insert, ins)])
 
-						out.push(diff)
+						out.push([diff])
 						ins = del = ''
 						break
 					}
@@ -122,7 +187,7 @@ export class Differ extends DiffMatchPatch {
 							out.push(this.diff(del, diff.text, options))
 							ins = del = ''
 						} else {
-							if (ins) out.push(new Diff(DiffOperation.Insert, ins))
+							if (ins) out.push([new Diff(DiffOperation.Insert, ins)])
 							ins = diff.text
 						}
 						break
@@ -132,15 +197,15 @@ export class Differ extends DiffMatchPatch {
 							out.push(this.diff(diff.text, ins, options))
 							ins = del = ''
 						} else {
-							if (del) out.push(new Diff(DiffOperation.Delete, del))
+							if (del) out.push([new Diff(DiffOperation.Delete, del)])
 							del = diff.text
 						}
 						break
 					}
 				}
 			}
-			if (del) out.push(new Diff(DiffOperation.Delete, del))
-			if (ins) out.push(new Diff(DiffOperation.Insert, ins))
+			if (del) out.push([new Diff(DiffOperation.Delete, del)])
+			if (ins) out.push([new Diff(DiffOperation.Insert, ins)])
 
 			return out
 		})

@@ -67,11 +67,11 @@ export class DiffMatchPatch {
 	 *     then don't run a line-level diff first to identify the changed areas.
 	 *     Defaults to true, which does a faster, slightly less optimal diff.
 	 * @param opt_deadline Optional time when the diff should be complete
-	 *     by.  Used internally for recursive calls.  Users should set DiffTimeout
+	 *     by.  Used internally for recursive calls.  Users should set `Diff_Timeout`
 	 *     instead.
 	 * @returns Array of diff tuples.
 	 */
-	diff_main(text1: string, text2: string, opt_checklines?: boolean, opt_deadline?: number): Diff[] {
+	diff_main(text1: string, text2: string, opt_checklines?: boolean, opt_deadline?: number | null): Diff[] {
 		// Set a deadline by which time the diff must be complete.
 		if (opt_deadline == null) {
 			if (this.Diff_Timeout <= 0) {
@@ -431,7 +431,7 @@ export class DiffMatchPatch {
 		 * hashes where each Unicode character represents one line.
 		 * Modifies linearray and linehash through being a closure.
 		 * @param text String to encode.
-		 * @param maxLines
+		 * @param maxLines The maximum number of lines.
 		 * @returns Encoded string.
 		 * @protected
 		 */
