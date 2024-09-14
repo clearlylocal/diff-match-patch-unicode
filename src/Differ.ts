@@ -8,17 +8,22 @@ import { SegmentCodec, StringIter } from './SegmentCodec.ts'
 export type DiffOptions = {
 	/**
 	 * The segmenter to use for the diff (e.g. chars, words, sentences, lines, graphemes, etc).
-	 *
 	 * Some suitable segmenters are available in the {@linkcode segmenters} object.
+	 *
+	 * @default {segmenters.char}
 	 */
 	segmenter: Segmenter
 	/**
 	 * Whether to join adjacent diffs.
+	 * @default {true}
 	 */
 	join: boolean
 	/**
-	 * Optional speedup flag. If `true`, then run a line-level diff first to identify the changed areas.
-	 * Defaults to `false`, which does a slower, slightly more optimal diff.
+	 * Optional speedup flag:
+	 * - If `true`, run a line-level diff first to identify the changed areas.
+	 * - If `false`, do a slower, slightly more optimal diff.
+	 *
+	 * @default {false}
 	 */
 	checkLines: boolean
 }

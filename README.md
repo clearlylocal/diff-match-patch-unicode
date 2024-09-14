@@ -24,32 +24,32 @@ const str2 = 'Goodbye, world! 💩'
 
 // default behavior: UTF-8 char diff
 assertDiffsEqual(
-	differ.diff(str1, str2),
-	[[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
+    differ.diff(str1, str2),
+    [[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
 )
 
 // word diff with `Intl.Segmenter`
 assertDiffsEqual(
-	differ.diff(str1, str2, { segmenter: segmenters.word }),
-	[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
+    differ.diff(str1, str2, { segmenter: segmenters.word }),
+    [[-1, 'Hello'], [1, 'Goodbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
 )
 
 // pass in a custom `Intl.Segmenter` instance
 assertDiffsEqual(
-	differ.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }),
-	[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
+    differ.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }),
+    [[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
 )
 
 // line diff
 assertDiffsEqual(
-	differ.diff(str1, str2, { segmenter: segmenters.line }),
-	[[-1, 'Hello, world! 💫'], [1, 'Goodbye, world! 💩']],
+    differ.diff(str1, str2, { segmenter: segmenters.line }),
+    [[-1, 'Hello, world! 💫'], [1, 'Goodbye, world! 💩']],
 )
 
 // custom UTF-16 code-unit diff (equivalent to using `diffCodeUnits` directly... but less performant)
 assertDiffsEqual(
-	differ.diff(str1, str2, { segmenter: (str) => str.split('') }),
-	[[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! \ud83d'], [-1, '\udcab'], [1, '\udca9']],
+    differ.diff(str1, str2, { segmenter: (str) => str.split('') }),
+    [[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! \ud83d'], [-1, '\udcab'], [1, '\udca9']],
 )
 ```
 
