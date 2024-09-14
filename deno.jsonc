@@ -1,8 +1,15 @@
 {
 	"lock": false,
+	"name": "@clearlylocal/diff-match-patch-unicode",
+	"version": "0.0.0",
+	"description": "Modern JS/TS and Unicode-friendly version of diff-match-patch",
+	"exports": {
+		".": "./src/mod.ts",
+		"./Differ": "./src/Differ.ts",
+		"./Diff": "./src/Diff.ts"
+	},
 	"tasks": {
-		"test": "deno test --doc --watch src tests",
-		"docs": "deno doc --html --name='Diff-Match-Patch Unicode' src/mod.mjs && touch docs/.nojekyll"
+		"test": "deno test --doc --watch src tests"
 	},
 	"imports": {
 		"std/": "https://deno.land/std@0.211.0/",

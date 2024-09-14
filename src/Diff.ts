@@ -28,29 +28,29 @@ export class Diff {
 		this[1] = text
 	}
 
-	get op() {
+	get op(): DiffOperation {
 		return this[0]
 	}
-	get text() {
+	get text(): string {
 		return this[1]
 	}
-	get length() {
+	get length(): 2 {
 		return 2
 	}
 
-	toJSON() {
-		return [...this]
+	toJSON(): [DiffOperation, string] {
+		return [this[0], this[1]]
 	}
 
-	*[Symbol.iterator]() {
+	*[Symbol.iterator](): DiffTupleIter {
 		yield this[0]
 		yield this[1]
 	}
 
 	// @ts-expect-error A computed property name in a class property declaration must have a simple literal type or a 'unique symbol' type.
-	[Symbol.for('Deno.customInspect')] = this.#customInspect;
+	[Symbol.for('Deno.customInspect')]: CustomInspect = this.#customInspect;
 	// @ts-expect-error A computed property name in a class property declaration must have a simple literal type or a 'unique symbol' type.
-	[Symbol.for('nodejs.util.inspect.custom')] = this.#customInspect
+	[Symbol.for('nodejs.util.inspect.custom')]: CustomInspect = this.#customInspect
 
 	#customInspect(this: Diff, _: unknown, opts: { colors: boolean }) {
 		return `Diff #${(globalThis.Deno?.inspect([...this], opts) ??
@@ -59,7 +59,14 @@ export class Diff {
 			JSON.stringify(this))}`
 	}
 
-	clone() {
+	clone(): Diff {
 		return new Diff(this[0], this[1])
 	}
 }
+
+type CustomInspect = (this: Diff, _: unknown, opts: { colors: boolean }) => string
+/**
+ * Actually always yields a single DiffOperation then a single string, but TS currently can't express that in an
+ * iterator type.
+ */
+type DiffTupleIter = Iterator<DiffOperation | string, undefined, undefined>

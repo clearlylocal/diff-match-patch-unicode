@@ -1,5 +1,6 @@
 import { assert, assertEquals } from 'std/assert/mod.ts'
-import { Diff, Differ, DiffOperation, Patch, segmenters } from '../src/mod.ts'
+import { Diff, Differ, DiffOperation, segmenters } from '../src/mod.ts'
+import { Patch } from '../src/Patch.ts'
 import { DiffMatchPatch } from '../src/DiffMatchPatch.ts'
 
 /**

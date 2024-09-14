@@ -1,16 +1,16 @@
-# Diff-Match-Patch Unicode
+# Diff-Match-Patch Unicode [![JSR](https://jsr.io/badges/@clearlylocal/diff-match-patch-unicode)](https://jsr.io/@clearlylocal/diff-match-patch-unicode)
 
 Modern JS/TS and Unicode-friendly version of [diff-match-patch](https://github.com/google/diff-match-patch).
 
 ## Usage
 
 ```ts
-diff(str1: string, str2: string, options?: { segmenter?: Intl.Segmenter | ((str: string) => string[]) }): Diff[]
+diff(str1: string, str2: string, options?: Partial<DiffOptions>): Diff[]
 ```
 
 Diff two strings. Unicode-aware by default, including non-BMP characters.
 
-Pass a `segmenter` option to customize the units of calculation for the diff (char, line, etc).
+Pass a `segmenter` option to customize the units of calculation for the diff (char, line, word, grapheme, sentence, etc).
 
 ### Example
 

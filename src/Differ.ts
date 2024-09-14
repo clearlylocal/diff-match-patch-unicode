@@ -10,14 +10,13 @@ type DiffOptions = {
 type Segmenter = SimpleSegmenter | Intl.Segmenter
 type SimpleSegmenter = (str: string) => string[]
 
-// deno-fmt-ignore
-export const segmenters = {
+export const segmenters: Record<'char' | 'line' | 'grapheme' | 'word' | 'sentence', Segmenter> = {
 	char: (str) => [...str],
 	line: (str) => str.split('\n').map((x, i, a) => i === a.length - 1 ? x : x + '\n'),
 	grapheme: new Intl.Segmenter('en-US', { granularity: 'grapheme' }),
 	word: new Intl.Segmenter('en-US', { granularity: 'word' }),
 	sentence: new Intl.Segmenter('en-US', { granularity: 'sentence' }),
-} satisfies Record<string, Segmenter>
+}
 
 const defaultDiffOptions: DiffOptions = {
 	segmenter: segmenters.char,
@@ -35,14 +34,14 @@ export class Differ {
 	set diffTimeout(val: number) {
 		this.#dmp.Diff_Timeout = val
 	}
-	get diffTimeout() {
+	get diffTimeout(): number {
 		return this.#dmp.Diff_Timeout
 	}
 
 	/**
 	 * Diff two strings. Unicode-aware by default, including non-BMP characters.
 	 *
-	 * Pass a `segmenter` option to customize the units of calculation for the diff (char, line, grapheme, sentence,
+	 * Pass a `segmenter` option to customize the units of calculation for the diff (char, line, word, grapheme, sentence,
 	 * etc).
 	 *
 	 * @example
