@@ -1,19 +1,22 @@
-export type DiffOperation = typeof DiffOperation[keyof typeof DiffOperation]
-
-/**
- * The data structure representing a diff is an array of tuples:
- * [[DiffOperation.Delete, 'Hello'], [DiffOperation.Insert, 'Goodbye'], [DiffOperation.Equal, ' world.']]
- * which means: delete 'Hello', add 'Goodbye' and keep ' world.'
- *
- * @enum
- */
+/** @enum */
 export const DiffOperation = {
 	Delete: -1,
 	Insert: 1,
 	Equal: 0,
 } as const
+export type DiffOperation = typeof DiffOperation[keyof typeof DiffOperation]
 
-/** Diff tuple of [operation, text] */
+/**
+ * Diff tuple of `[operation, text]`.
+ *
+ * The data structure representing a diff is an array of `Diff` tuples.
+ *
+ * @example
+ * ```ts
+ * [[-1, 'Hello'], [1, 'Goodbye'], [0, ' world.']]
+ * // delete 'Hello', add 'Goodbye' and keep ' world.'
+ * ```
+ */
 export class Diff {
 	0: DiffOperation
 	1: string

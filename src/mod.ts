@@ -1,2 +1,2 @@
 export { Diff, DiffOperation } from './Diff.ts'
-export { Differ, segmenters } from './Differ.ts'
+export { Differ, type DiffOptions, segmenters } from './Differ.ts'

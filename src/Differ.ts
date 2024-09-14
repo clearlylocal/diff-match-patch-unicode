@@ -1,17 +1,18 @@
 import { Diff, DiffOperation } from './Diff.ts'
 import { DiffMatchPatch, MAX_BMP_CODEPOINT, TWO_THIRDS_OF_MAX_BMP_CODEPOINT } from './DiffMatchPatch.ts'
+import { SegmentCodec, StringIter } from './SegmentCodec.ts'
 
-type DiffOptions = {
+export type DiffOptions = {
 	segmenter: Segmenter
 	join: boolean
 	checkLines: boolean
 }
 
 type Segmenter = SimpleSegmenter | Intl.Segmenter
-type SimpleSegmenter = (str: string) => string[]
+type SimpleSegmenter = (str: string) => StringIter
 
 export const segmenters: Record<'char' | 'line' | 'grapheme' | 'word' | 'sentence', Segmenter> = {
-	char: (str) => [...str],
+	char: (str) => str,
 	line: (str) => str.split('\n').map((x, i, a) => i === a.length - 1 ? x : x + '\n'),
 	grapheme: new Intl.Segmenter('en-US', { granularity: 'grapheme' }),
 	word: new Intl.Segmenter('en-US', { granularity: 'word' }),
@@ -208,49 +209,5 @@ export class Differ {
 
 			return out
 		})
-	}
-}
-
-/**
- * Stateful class for encoding and decoding segments <-> chars
- */
-class SegmentCodec {
-	#n = 0
-	#encoded: Map<string, string> = new Map()
-	#decoded: Map<string, string> = new Map()
-
-	encode(segments: string[], max: number): string {
-		let out = ''
-		for (let i = 0; i < segments.length; ++i) {
-			const segment = segments[i]
-
-			if (this.#encoded.get(segment) == null) {
-				++this.#n
-
-				const char = String.fromCharCode(this.#n)
-
-				if (this.#n === max) {
-					const segment = segments.slice(i).join('')
-
-					this.#encoded.set(segment, char)
-					this.#decoded.set(char, segment)
-
-					out += char
-
-					break
-				}
-
-				this.#encoded.set(segment, char)
-				this.#decoded.set(char, segment)
-			}
-
-			out += this.#encoded.get(segment)
-		}
-
-		return out
-	}
-
-	decode(text: string): string[] {
-		return [...text].map((char) => this.#decoded.get(char) ?? '')
 	}
 }
