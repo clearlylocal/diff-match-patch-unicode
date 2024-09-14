@@ -2,15 +2,33 @@ import { Diff, DiffOperation } from './Diff.ts'
 import { DiffMatchPatch, MAX_BMP_CODEPOINT, TWO_THIRDS_OF_MAX_BMP_CODEPOINT } from './DiffMatchPatch.ts'
 import { SegmentCodec, StringIter } from './SegmentCodec.ts'
 
+/**
+ * Options for the {@linkcode Differ} class.
+ */
 export type DiffOptions = {
+	/**
+	 * The segmenter to use for the diff (e.g. chars, words, sentences, lines, graphemes, etc).
+	 *
+	 * Some suitable segmenters are available in the {@linkcode segmenters} object.
+	 */
 	segmenter: Segmenter
+	/**
+	 * Whether to join adjacent diffs.
+	 */
 	join: boolean
+	/**
+	 * Optional speedup flag. If `true`, then run a line-level diff first to identify the changed areas.
+	 * Defaults to `false`, which does a slower, slightly more optimal diff.
+	 */
 	checkLines: boolean
 }
 
 type Segmenter = SimpleSegmenter | Intl.Segmenter
 type SimpleSegmenter = (str: string) => StringIter
 
+/**
+ * A collection of commonly-used segmenters, suitable for use as the `segmenter` option in the {@linkcode Differ} class.
+ */
 export const segmenters: Record<'char' | 'line' | 'grapheme' | 'word' | 'sentence', Segmenter> = {
 	char: (str) => str,
 	line: (str) => str.split('\n').map((x, i, a) => i === a.length - 1 ? x : x + '\n'),
@@ -25,6 +43,10 @@ const defaultDiffOptions: DiffOptions = {
 	checkLines: false,
 }
 
+/**
+ * A class for performing diffs. Wraps the {@linkcode DiffMatchPatch} class from the original library with more
+ * ergonomic and Unicode-friendly methods.
+ */
 export class Differ {
 	#dmp: DiffMatchPatch
 

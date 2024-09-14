@@ -1,4 +1,7 @@
-/** @enum */
+/**
+ * Types of diff operations.
+ * @enum
+ */
 export const DiffOperation = {
 	Delete: -1,
 	Insert: 1,
