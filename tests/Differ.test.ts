@@ -22,16 +22,14 @@ Deno.test(differ.diff.name, async (t) => {
 		})
 
 		await t.step('can opt into old code unit behavior', () => {
-			const segmenter = (str: string) => str.split('')
-
 			assertDiffsEqual(
 				[[0, '\ud83d'], [-1, '\udcab'], [1, '\udca9']],
-				differ.diff('💫', '💩', { segmenter }),
+				differ.diffCodeUnits('💫', '💩'),
 			)
 
 			assertEquals(
 				differ.diffCodeUnits('💫', '💩'),
-				differ.diff('💫', '💩', { segmenter }),
+				differ.diff('💫', '💩', { segmenter: (str) => str.split('') }),
 			)
 		})
 	})
@@ -66,14 +64,25 @@ Deno.test(differ.diff.name, async (t) => {
 		})
 	})
 
+	await t.step('custom segmenters', async (t) => {
+		await t.step('multiple digits or char via custom regex match', () => {
+			const segmenter = (str: string) => str.match(/\d+|./gus) ?? []
+
+			assertDiffsEqual(
+				[[-1, 'hell'], [1, 'go'], [0, 'o'], [1, 'dbye'], [0, ' '], [-1, '123'], [1, '135']],
+				differ.diff('hello 123', 'goodbye 135', { segmenter }),
+			)
+		})
+	})
+
 	await t.step('parity with line diff function from docs', () => {
 		// https://github.com/google/diff-match-patch/wiki/Line-or-Word-Diffs
 
 		function diffLineMode(text1: string, text2: string) {
 			const dmp = new DiffMatchPatch()
-			const { chars1, chars2, lineArray } = dmp['diff_linesToChars_'](text1, text2)
+			const { chars1, chars2, lineArray } = dmp.diff_linesToChars_(text1, text2)
 			const diffs = dmp.diff_main(chars1, chars2, false)
-			dmp['diff_charsToLines_'](diffs, lineArray)
+			dmp.diff_charsToLines_(diffs, lineArray)
 
 			return diffs
 		}
