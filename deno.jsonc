@@ -6,7 +6,7 @@
 	},
 	"imports": {
 		"std/": "https://deno.land/std@0.211.0/",
-		"diff-match-patch-unicode": "./src/mod.mjs"
+		"@clearlylocal/diff-match-patch-unicode": "./src/mod.ts"
 	},
 	"fmt": {
 		"semiColons": false,

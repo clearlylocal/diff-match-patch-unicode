@@ -1,29 +1,24 @@
-// @ts-check
+import { Diff, DiffOperation } from './Diff.ts'
+import { DiffMatchPatch, MAX_BMP_CODEPOINT, TWO_THIRDS_OF_MAX_BMP_CODEPOINT } from './DiffMatchPatch.ts'
 
-import { Diff, DiffOperation } from './Diff.mjs'
-import { DiffMatchPatch, MAX_BMP_CODEPOINT, TWO_THIRDS_OF_MAX_BMP_CODEPOINT } from './DiffMatchPatch.mjs'
+type DiffOptions = {
+	segmenter: Segmenter
+	join: boolean
+}
 
-/**
- * @typedef {{
- * 	segmenter: Segmenter,
- * 	join: boolean,
- * }} DiffOptions
- */
-
-/** @typedef {SimpleSegmenter | Intl.Segmenter} Segmenter */
-/** @typedef {(str: string) => string[]} SimpleSegmenter */
+type Segmenter = SimpleSegmenter | Intl.Segmenter
+type SimpleSegmenter = (str: string) => string[]
 
 // deno-fmt-ignore
-export const segmenters = /** @satisfies {Record<String, Segmenter>} */ ({
+export const segmenters = {
 	char: (str) => [...str],
 	line: (str) => str.split('\n').map((x, i, a) => i === a.length - 1 ? x : x + '\n'),
 	grapheme: new Intl.Segmenter('en-US', { granularity: 'grapheme' }),
 	word: new Intl.Segmenter('en-US', { granularity: 'word' }),
 	sentence: new Intl.Segmenter('en-US', { granularity: 'sentence' }),
-})
+} satisfies Record<string, Segmenter>
 
-/** @type DiffOptions */
-const defaultDiffOptions = {
+const defaultDiffOptions: DiffOptions = {
 	segmenter: segmenters.char,
 	join: true,
 }
@@ -34,14 +29,9 @@ export class Differ extends DiffMatchPatch {
 	 *
 	 * Pass a `segmenter` option to customize the units of calculation for the diff (char, line, etc).
 	 *
-	 * @param {string} str1
-	 * @param {string} str2
-	 * @param {Partial<DiffOptions>} [options]
-	 * @returns {Diff[]}
-	 *
 	 * @example
 	 * ```ts
-	 * import { Differ, segmenters } from 'diff-match-patch-unicode'
+	 * import { Differ, segmenters } from '@clearlylocal/diff-match-patch-unicode'
 	 *
 	 * const differ = new Differ()
 	 *
@@ -49,7 +39,7 @@ export class Differ extends DiffMatchPatch {
 	 * const str2 = 'Goodbye, world! 💩'
 	 *
 	 * // default behavior: UTF-8 char diff
-	 * differ.diff(str1, str2) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
+	 * differ.diff(str1, str2) // [-1, "Hell"], [1, "G"], [0, "o"], [1, "odbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
 	 * // word diff with `Intl.Segmenter`
 	 * differ.diff(str1, str2, { segmenter: segmenters.word }) // [-1, "Hello"], [1, "Goodbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
 	 * // pass in a custom `Intl.Segmenter` instance
@@ -57,10 +47,10 @@ export class Differ extends DiffMatchPatch {
 	 * // line diff
 	 * differ.diff(str1, str2, { segmenter: segmenters.line }) // [-1, "Hello, world! 💫"], [1, "Goodbye, world! 💩"]
 	 * // custom UTF-16 code-unit diff (equivalent to using `diff_main` directly... but less performant)
-	 * differ.diff(str1, str2, { segmenter: (str) => str.split('') }) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
+	 * differ.diff(str1, str2, { segmenter: (str) => str.split('') }) // [-1, "Hell"], [1, "G"], [0, "o"], [1, "odbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
 	 * ```
 	 */
-	diff(str1, str2, options) {
+	diff(str1: string, str2: string, options?: Partial<DiffOptions>): Diff[] {
 		if (str1 === str2) {
 			// no need to go any further if both strings are the same
 			return str1 ? [new Diff(DiffOperation.Equal, str1)] : []
@@ -93,43 +83,26 @@ export class Differ extends DiffMatchPatch {
 		return diffs.map(({ op, text }) => new Diff(op, codec.decode(text).join(''))).filter((x) => x.text)
 	}
 
-	/**
-	 * @param {Segmenter} segmenter
-	 * @returns {SimpleSegmenter}
-	 */
-	#toSegmentFn(segmenter) {
+	#toSegmentFn(segmenter: Segmenter): SimpleSegmenter {
 		return segmenter instanceof Intl.Segmenter
 			? (str) => [...segmenter.segment(str)].map((x) => x.segment)
 			: segmenter
 	}
 
-	/** @type {number | undefined} */
-	#deadline = undefined
+	#deadline: number | undefined = undefined
 
-	/**
-	 * @template T
-	 * @param {() => T} fn
-	 * @returns {T}
-	 */
-	#timeboxed(fn) {
+	#timeboxed<T>(fn: () => T): T {
 		this.#deadline = new Date().valueOf() + this.Diff_Timeout * 1000
 		const val = fn()
 		this.#deadline = undefined
 		return val
 	}
-
-	/**
-	 * @param {Diff[]} diffs
-	 * @param {Partial<DiffOptions>} [options]
-	 * @returns {(Diff | Diff[])[]}
-	 */
-	diffWithin(diffs, options) {
+	diffWithin(diffs: Diff[], options: Partial<DiffOptions>): (Diff | Diff[])[] {
 		return this.#timeboxed(() => {
 			// avoid mutating input arr
 			diffs = diffs.map((d) => d.clone())
 
-			/** @type {(Diff | Diff[])[]} */
-			const out = []
+			const out: (Diff | Diff[])[] = []
 
 			let ins = ''
 			let del = ''
@@ -179,23 +152,16 @@ export class Differ extends DiffMatchPatch {
  */
 class SegmentCodec {
 	#n = 0
-	/** @type {Map<string, string>} */
-	#encoded = new Map()
-	/** @type {Map<string, string>} */
-	#decoded = new Map()
+	#encoded: Map<string, string> = new Map()
+	#decoded: Map<string, string> = new Map()
 
-	/**
-	 * @param {string[]} segments
-	 * @param {number} max
-	 * @returns {string}
-	 */
-	encode(segments, max) {
+	encode(segments: string[], max: number): string {
 		let out = ''
 		for (let i = 0; i < segments.length; ++i) {
 			const segment = segments[i]
 
 			if (this.#encoded.get(segment) == null) {
-				;++this.#n
+				++this.#n
 
 				const char = String.fromCharCode(this.#n)
 
@@ -220,11 +186,7 @@ class SegmentCodec {
 		return out
 	}
 
-	/**
-	 * @param {string} text
-	 * @returns {string[]}
-	 */
-	decode(text) {
+	decode(text: string): string[] {
 		return [...text].map((char) => this.#decoded.get(char) ?? '')
 	}
 }

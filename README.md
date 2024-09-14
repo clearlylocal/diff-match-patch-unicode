@@ -1,6 +1,6 @@
 # Diff-Match-Patch Unicode
 
-Modern JS and Unicode-friendly version of [diff-match-patch](https://github.com/google/diff-match-patch).
+Modern JS/TS and Unicode-friendly version of [diff-match-patch](https://github.com/google/diff-match-patch).
 
 ## Usage
 
@@ -15,7 +15,7 @@ Pass a `segmenter` option to customize the units of calculation for the diff (ch
 ### Example
 
 ```ts
-import { Differ, segmenters } from 'diff-match-patch-unicode'
+import { Differ, segmenters } from '@clearlylocal/diff-match-patch-unicode'
 
 const differ = new Differ()
 
@@ -23,15 +23,34 @@ const str1 = 'Hello, world! 💫'
 const str2 = 'Goodbye, world! 💩'
 
 // default behavior: UTF-8 char diff
-differ.diff(str1, str2) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
+assertDiffsEqual(
+	differ.diff(str1, str2),
+	[[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
+)
+
 // word diff with `Intl.Segmenter`
-differ.diff(str1, str2, { segmenter: segmenters.word }) // [-1, "Hello"], [1, "Goodbye"], [0, ", world! "], [-1, "💫"], [1, "💩"]
+assertDiffsEqual(
+	differ.diff(str1, str2, { segmenter: segmenters.word }),
+	[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
+)
+
 // pass in a custom `Intl.Segmenter` instance
-differ.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }) // [0, '两只'], [-1, '小蜜蜂'], [1, '老虎']
+assertDiffsEqual(
+	differ.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }),
+	[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
+)
+
 // line diff
-differ.diff(str1, str2, { segmenter: segmenters.line }) // [-1, "Hello, world! 💫"], [1, "Goodbye, world! 💩"]
+assertDiffsEqual(
+	differ.diff(str1, str2, { segmenter: segmenters.line }),
+	[[-1, 'Hello, world! 💫'], [1, 'Goodbye, world! 💩']],
+)
+
 // custom UTF-16 code-unit diff (equivalent to using `diff_main` directly... but less performant)
-differ.diff(str1, str2, { segmenter: (str) => str.split('') }) // [-1, "Hell"], [1, "Go"], [0, "o"], [1, "dbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
+assertDiffsEqual(
+	differ.diff(str1, str2, { segmenter: (str) => str.split('') }),
+	[[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! \ud83d'], [-1, '\udcab'], [1, '\udca9']],
+)
 ```
 
 ## Limitations

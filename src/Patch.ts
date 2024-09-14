@@ -1,21 +1,14 @@
-// @ts-check
-
-import { DiffOperation } from './Diff.mjs'
-/** @typedef {import('./Diff.mjs').Diff} Diff */
+import { DiffOperation } from './Diff.ts'
+import type { Diff } from './Diff.ts'
 
 /**
  * Class representing one patch operation.
  */
 export class Patch {
-	/** @type {Diff[]} */
-	diffs = []
-	/** @type {number | null} */
-	start1 = null
-	/** @type {number | null} */
-	start2 = null
-	/** @type {number} */
+	diffs: Diff[] = []
+	start1: number | null = null
+	start2: number | null = null
 	length1 = 0
-	/** @type {number} */
 	length2 = 0
 
 	/**
@@ -23,9 +16,9 @@ export class Patch {
 	 * Header: `@@` -382,8 +481,9 `@@`
 	 *
 	 * Indices are printed as 1-based, not 0-based.
-	 * @returns {string} The GNU diff string.
+	 * @returns The GNU diff string.
 	 */
-	toString() {
+	toString(): string {
 		let coords1, coords2
 		if (this.length1 === 0) {
 			coords1 = this.start1 + ',0'
