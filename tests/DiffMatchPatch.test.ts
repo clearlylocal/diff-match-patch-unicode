@@ -1,8 +1,11 @@
-import { assert, assertEquals, AssertionError, assertThrows } from '@std/assert'
-import { Diff, Differ, DiffOperation, segmenters } from '../src/mod.ts'
-import { Patch } from '../src/Patch.ts'
+import { assert, assertEquals } from '@std/assert'
 import { DiffMatchPatch } from '../src/DiffMatchPatch.ts'
-import { SegmentCodec } from '../src/SegmentCodec.ts'
+import { Diff, DiffOperation } from '../src/Diff.ts'
+import { Patch } from '../src/Patch.ts'
+import { assertDiffsEqual, makeDiffs } from './testUtils.ts'
+
+// Tests here are modified from `google/diff-match-patch` tests
+// to ensure parity after the various refactoring (ESM, classes, TS, etc.)
 
 /**
  * Diff Match and Patch -- Test Harness
@@ -22,25 +25,9 @@ import { SegmentCodec } from '../src/SegmentCodec.ts'
  * limitations under the License.
  */
 
-const differ = new Differ()
 const dmp = new DiffMatchPatch()
 
-type DiffLike = Diff | [DiffOperation, string]
-
-function makeDiffs(arr: DiffLike[]) {
-	// https://github.com/microsoft/TypeScript/issues/42033
-	return arr.map(({ 0: op, 1: text }) => new Diff(op, text))
-}
-
-function assertDiffsEqual(d1: DiffLike[], d2: DiffLike[]) {
-	assertEquals(makeDiffs(d1), makeDiffs(d2))
-}
-
-function assertDiffsEqual2d(d1: DiffLike[][], d2: DiffLike[][]) {
-	assertEquals(d1.map((x) => makeDiffs(x)), d2.map((x) => makeDiffs(x)))
-}
-
-Deno.test('DiffCommonPrefix', function testDiffCommonPrefix() {
+Deno.test(dmp.diff_commonPrefix.name, () => {
 	// Detect any common prefix.
 	// Null case.
 	assertEquals(0, dmp.diff_commonPrefix('abc', 'xyz'))
@@ -52,7 +39,7 @@ Deno.test('DiffCommonPrefix', function testDiffCommonPrefix() {
 	assertEquals(4, dmp.diff_commonPrefix('1234', '1234xyz'))
 })
 
-Deno.test('DiffCommonSuffix', function testDiffCommonSuffix() {
+Deno.test(dmp.diff_commonSuffix.name, () => {
 	// Detect any common suffix.
 	// Null case.
 	assertEquals(0, dmp.diff_commonSuffix('abc', 'xyz'))
@@ -64,81 +51,72 @@ Deno.test('DiffCommonSuffix', function testDiffCommonSuffix() {
 	assertEquals(4, dmp.diff_commonSuffix('1234', 'xyz1234'))
 })
 
-Deno.test('DiffCommonOverlap', function testDiffCommonOverlap() {
-	// testing private method
-	const diff_commonOverlap_ = dmp['diff_commonOverlap_'].bind(dmp)
-
+Deno.test(dmp.diff_commonOverlap_.name, () => {
 	// Detect any suffix/prefix overlap.
 	// Null case.
-	assertEquals(0, diff_commonOverlap_('', 'abcd'))
+	assertEquals(0, dmp.diff_commonOverlap_('', 'abcd'))
 
 	// Whole case.
-	assertEquals(3, diff_commonOverlap_('abc', 'abcd'))
+	assertEquals(3, dmp.diff_commonOverlap_('abc', 'abcd'))
 
 	// No overlap.
-	assertEquals(0, diff_commonOverlap_('123456', 'abcd'))
+	assertEquals(0, dmp.diff_commonOverlap_('123456', 'abcd'))
 
 	// Overlap.
-	assertEquals(3, diff_commonOverlap_('123456xxx', 'xxxabcd'))
+	assertEquals(3, dmp.diff_commonOverlap_('123456xxx', 'xxxabcd'))
 
 	// Unicode.
 	// Some overly clever languages (C#) may treat ligatures as equal to their
 	// component letters.  E.g. U+FB01 == 'fi'
-	assertEquals(0, diff_commonOverlap_('fi', '\ufb01i'))
+	assertEquals(0, dmp.diff_commonOverlap_('fi', '\ufb01i'))
 })
 
-Deno.test('DiffHalfMatch', function testDiffHalfMatch() {
-	// testing private method
-	const diff_halfMatch_ = dmp['diff_halfMatch_'].bind(dmp)
-
+Deno.test(dmp.diff_halfMatch_.name, () => {
 	// Detect a halfmatch.
 	dmp.Diff_Timeout = 1
 	// No match.
-	assertEquals(null, diff_halfMatch_('1234567890', 'abcdef'))
+	assertEquals(null, dmp.diff_halfMatch_('1234567890', 'abcdef'))
 
-	assertEquals(null, diff_halfMatch_('12345', '23'))
+	assertEquals(null, dmp.diff_halfMatch_('12345', '23'))
 
 	// Single Match.
-	assertEquals(['12', '90', 'a', 'z', '345678'], diff_halfMatch_('1234567890', 'a345678z'))
+	assertEquals(['12', '90', 'a', 'z', '345678'], dmp.diff_halfMatch_('1234567890', 'a345678z'))
 
-	assertEquals(['a', 'z', '12', '90', '345678'], diff_halfMatch_('a345678z', '1234567890'))
+	assertEquals(['a', 'z', '12', '90', '345678'], dmp.diff_halfMatch_('a345678z', '1234567890'))
 
-	assertEquals(['abc', 'z', '1234', '0', '56789'], diff_halfMatch_('abc56789z', '1234567890'))
+	assertEquals(['abc', 'z', '1234', '0', '56789'], dmp.diff_halfMatch_('abc56789z', '1234567890'))
 
-	assertEquals(['a', 'xyz', '1', '7890', '23456'], diff_halfMatch_('a23456xyz', '1234567890'))
+	assertEquals(['a', 'xyz', '1', '7890', '23456'], dmp.diff_halfMatch_('a23456xyz', '1234567890'))
 
 	// Multiple Matches.
 	assertEquals(
 		['12123', '123121', 'a', 'z', '1234123451234'],
-		diff_halfMatch_('121231234123451234123121', 'a1234123451234z'),
+		dmp.diff_halfMatch_('121231234123451234123121', 'a1234123451234z'),
 	)
 
 	assertEquals(
 		['', '-=-=-=-=-=', 'x', '', 'x-=-=-=-=-=-=-='],
-		diff_halfMatch_('x-=-=-=-=-=-=-=-=-=-=-=-=', 'xx-=-=-=-=-=-=-='),
+		dmp.diff_halfMatch_('x-=-=-=-=-=-=-=-=-=-=-=-=', 'xx-=-=-=-=-=-=-='),
 	)
 
 	assertEquals(
 		['-=-=-=-=-=', '', '', 'y', '-=-=-=-=-=-=-=y'],
-		diff_halfMatch_('-=-=-=-=-=-=-=-=-=-=-=-=y', '-=-=-=-=-=-=-=yy'),
+		dmp.diff_halfMatch_('-=-=-=-=-=-=-=-=-=-=-=-=y', '-=-=-=-=-=-=-=yy'),
 	)
 
 	// Non-optimal halfmatch.
 	// Optimal diff would be -q+x=H-i+e=lloHe+Hu=llo-Hew+y not -qHillo+x=HelloHe-w+Hulloy
-	assertEquals(['qHillo', 'w', 'x', 'Hulloy', 'HelloHe'], diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
+	assertEquals(['qHillo', 'w', 'x', 'Hulloy', 'HelloHe'], dmp.diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
 
 	// Optimal no halfmatch.
 	dmp.Diff_Timeout = 0
-	assertEquals(null, diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
+	assertEquals(null, dmp.diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
 })
 
-Deno.test('DiffLinesToChars', function testDiffLinesToChars() {
-	// testing private method
-	const diff_linesToChars_ = dmp['diff_linesToChars_'].bind(dmp)
-
+Deno.test(dmp.diff_linesToChars_.name, () => {
 	function assertLinesToCharsResultEquals(
-		a: ReturnType<typeof diff_linesToChars_>,
-		b: ReturnType<typeof diff_linesToChars_>,
+		a: ReturnType<typeof dmp.diff_linesToChars_>,
+		b: ReturnType<typeof dmp.diff_linesToChars_>,
 	) {
 		assertEquals(a.chars1, b.chars1)
 		assertEquals(a.chars2, b.chars2)
@@ -150,17 +128,17 @@ Deno.test('DiffLinesToChars', function testDiffLinesToChars() {
 		chars1: '\x01\x02\x01',
 		chars2: '\x02\x01\x02',
 		lineArray: ['', 'alpha\n', 'beta\n'],
-	}, diff_linesToChars_('alpha\nbeta\nalpha\n', 'beta\nalpha\nbeta\n'))
+	}, dmp.diff_linesToChars_('alpha\nbeta\nalpha\n', 'beta\nalpha\nbeta\n'))
 
 	assertLinesToCharsResultEquals({
 		chars1: '',
 		chars2: '\x01\x02\x03\x03',
 		lineArray: ['', 'alpha\r\n', 'beta\r\n', '\r\n'],
-	}, diff_linesToChars_('', 'alpha\r\nbeta\r\n\r\n\r\n'))
+	}, dmp.diff_linesToChars_('', 'alpha\r\nbeta\r\n\r\n\r\n'))
 
 	assertLinesToCharsResultEquals(
 		{ chars1: '\x01', chars2: '\x02', lineArray: ['', 'a', 'b'] },
-		diff_linesToChars_('a', 'b'),
+		dmp.diff_linesToChars_('a', 'b'),
 	)
 
 	// More than 256 to reveal any 8-bit limitations.
@@ -178,19 +156,15 @@ Deno.test('DiffLinesToChars', function testDiffLinesToChars() {
 	lineList.unshift('')
 	assertLinesToCharsResultEquals(
 		{ chars1: chars, chars2: '', lineArray: lineList },
-		diff_linesToChars_(lines, ''),
+		dmp.diff_linesToChars_(lines, ''),
 	)
 })
 
-Deno.test('DiffCharsToLines', function testDiffCharsToLines() {
-	// testing private methods
-	const diff_charsToLines_ = dmp['diff_charsToLines_'].bind(dmp)
-	const diff_linesToChars_ = dmp['diff_linesToChars_'].bind(dmp)
-
+Deno.test(`${dmp.diff_charsToLines_.name} and ${dmp.diff_linesToChars_.name}`, () => {
 	// Convert chars up to lines.
 	let diffs = makeDiffs([[DiffOperation.Equal, '\x01\x02\x01'], [DiffOperation.Insert, '\x02\x01\x02']])
 
-	diff_charsToLines_(diffs, ['', 'alpha\n', 'beta\n'])
+	dmp.diff_charsToLines_(diffs, ['', 'alpha\n', 'beta\n'])
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'alpha\nbeta\nalpha\n'], [DiffOperation.Insert, 'beta\nalpha\nbeta\n']],
 		diffs,
@@ -210,7 +184,7 @@ Deno.test('DiffCharsToLines', function testDiffCharsToLines() {
 	assertEquals(n, chars.length)
 	lineList.unshift('')
 	diffs = [new Diff(DiffOperation.Delete, chars)]
-	diff_charsToLines_(diffs, lineList)
+	dmp.diff_charsToLines_(diffs, lineList)
 	assertEquals([new Diff(DiffOperation.Delete, lines)], diffs)
 
 	// More than 65536 to verify any 16-bit limitation.
@@ -219,13 +193,13 @@ Deno.test('DiffCharsToLines', function testDiffCharsToLines() {
 		lineList[i] = i + '\n'
 	}
 	chars = lineList.join('')
-	const results = diff_linesToChars_(chars, '')
+	const results = dmp.diff_linesToChars_(chars, '')
 	diffs = [new Diff(DiffOperation.Insert, results.chars1)]
-	diff_charsToLines_(diffs, results.lineArray)
+	dmp.diff_charsToLines_(diffs, results.lineArray)
 	assertEquals(chars, diffs[0][1])
 })
 
-Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
+Deno.test(dmp.diff_cleanupMerge.name, () => {
 	// Cleanup a messy diff.
 	// Null case.
 	let diffs: Diff[] = []
@@ -335,7 +309,7 @@ Deno.test('DiffCleanupMerge', function testDiffCleanupMerge() {
 	assertDiffsEqual([[DiffOperation.Insert, 'a'], [DiffOperation.Equal, 'b']], diffs)
 })
 
-Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossless() {
+Deno.test(dmp.diff_cleanupSemanticLossless.name, () => {
 	// Slide diffs to match logical boundaries.
 	// Null case.
 	let diffs: Diff[] = []
@@ -423,7 +397,7 @@ Deno.test('DiffCleanupSemanticLossless', function testDiffCleanupSemanticLossles
 	)
 })
 
-Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
+Deno.test(dmp.diff_cleanupSemantic.name, () => {
 	// Cleanup semantically trivial equalities.
 	// Null case.
 	let diffs: Diff[] = []
@@ -547,7 +521,7 @@ Deno.test('DiffCleanupSemantic', function testDiffCleanupSemantic() {
 	)
 })
 
-Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
+Deno.test(dmp.diff_cleanupEfficiency.name, () => {
 	// Cleanup operationally trivial equalities.
 	dmp.Diff_EditCost = 4
 	// Null case.
@@ -615,7 +589,7 @@ Deno.test('DiffCleanupEfficiency', function testDiffCleanupEfficiency() {
 	dmp.Diff_EditCost = 4
 })
 
-Deno.test('DiffPrettyHtml', function testDiffPrettyHtml() {
+Deno.test(dmp.diff_prettyHtml.name, () => {
 	// Pretty print.
 	const diffs = makeDiffs([[DiffOperation.Equal, 'a\n'], [DiffOperation.Delete, '<B>b</B>'], [
 		DiffOperation.Insert,
@@ -627,7 +601,7 @@ Deno.test('DiffPrettyHtml', function testDiffPrettyHtml() {
 	)
 })
 
-Deno.test('DiffText', function testDiffText() {
+Deno.test(`${dmp.diff_text1.name} and ${dmp.diff_text2.name}`, () => {
 	// Compute the source and destination texts.
 	const diffs = makeDiffs([
 		[DiffOperation.Equal, 'jump'],
@@ -643,7 +617,7 @@ Deno.test('DiffText', function testDiffText() {
 	assertEquals('jumped over a lazy', dmp.diff_text2(diffs))
 })
 
-Deno.test('DiffDelta', function testDiffDelta() {
+Deno.test(`${dmp.diff_toDelta.name} and ${dmp.diff_fromDelta.name}`, () => {
 	// Convert a diff into delta string.
 	let diffs = makeDiffs([
 		[DiffOperation.Equal, 'jump'],
@@ -726,7 +700,7 @@ Deno.test('DiffDelta', function testDiffDelta() {
 	assertEquals(diffs, dmp.diff_fromDelta('', delta))
 })
 
-Deno.test('DiffXIndex', function testDiffXIndex() {
+Deno.test(dmp.diff_xIndex.name, () => {
 	// Translate a location in text1 to text2.
 	// Translation on equality.
 	assertEquals(
@@ -747,7 +721,7 @@ Deno.test('DiffXIndex', function testDiffXIndex() {
 	)
 })
 
-Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
+Deno.test(dmp.diff_levenshtein.name, () => {
 	// Levenshtein with trailing equality.
 	assertEquals(
 		4,
@@ -774,7 +748,7 @@ Deno.test('DiffLevenshtein', function testDiffLevenshtein() {
 	)
 })
 
-Deno.test('DiffBisect', function testDiffBisect() {
+Deno.test(dmp.diff_bisect_.name, () => {
 	// Normal.
 	const a = 'cat'
 	const b = 'map'
@@ -799,7 +773,7 @@ Deno.test('DiffBisect', function testDiffBisect() {
 	)
 })
 
-Deno.test('DiffMain', function testDiffMain() {
+Deno.test(dmp.diff_main.name, () => {
 	function diff_rebuildtexts(diffs: Diff[]) {
 		// Construct the two texts which made up the diff originally.
 		let text1 = ''
@@ -987,64 +961,61 @@ Deno.test('DiffMain', function testDiffMain() {
 
 // MATCH TEST FUNCTIONS
 
-Deno.test('MatchAlphabet', function testMatchAlphabet() {
+Deno.test(dmp.match_alphabet_.name, () => {
 	// Initialise the bitmasks for Bitap.
 	// Unique.
-	assertEquals({ 'a': 4, 'b': 2, 'c': 1 }, dmp['match_alphabet_']('abc'))
+	assertEquals({ 'a': 4, 'b': 2, 'c': 1 }, dmp.match_alphabet_('abc'))
 
 	// Duplicates.
-	assertEquals({ 'a': 37, 'b': 18, 'c': 8 }, dmp['match_alphabet_']('abcaba'))
+	assertEquals({ 'a': 37, 'b': 18, 'c': 8 }, dmp.match_alphabet_('abcaba'))
 })
 
-Deno.test('MatchBitap', function testMatchBitap() {
-	// testing private method
-	const match_bitap_ = dmp['match_bitap_'].bind(dmp)
-
+Deno.test(dmp.match_bitap_.name, () => {
 	// Bitap algorithm.
 	dmp.Match_Distance = 100
 	dmp.Match_Threshold = 0.5
 	// Exact matches.
-	assertEquals(5, match_bitap_('abcdefghijk', 'fgh', 5))
+	assertEquals(5, dmp.match_bitap_('abcdefghijk', 'fgh', 5))
 
-	assertEquals(5, match_bitap_('abcdefghijk', 'fgh', 0))
+	assertEquals(5, dmp.match_bitap_('abcdefghijk', 'fgh', 0))
 
 	// Fuzzy matches.
-	assertEquals(4, match_bitap_('abcdefghijk', 'efxhi', 0))
+	assertEquals(4, dmp.match_bitap_('abcdefghijk', 'efxhi', 0))
 
-	assertEquals(2, match_bitap_('abcdefghijk', 'cdefxyhijk', 5))
+	assertEquals(2, dmp.match_bitap_('abcdefghijk', 'cdefxyhijk', 5))
 
-	assertEquals(-1, match_bitap_('abcdefghijk', 'bxy', 1))
+	assertEquals(-1, dmp.match_bitap_('abcdefghijk', 'bxy', 1))
 
 	// Overflow.
-	assertEquals(2, match_bitap_('123456789xx0', '3456789x0', 2))
+	assertEquals(2, dmp.match_bitap_('123456789xx0', '3456789x0', 2))
 
 	// Threshold test.
 	dmp.Match_Threshold = 0.4
-	assertEquals(4, match_bitap_('abcdefghijk', 'efxyhi', 1))
+	assertEquals(4, dmp.match_bitap_('abcdefghijk', 'efxyhi', 1))
 
 	dmp.Match_Threshold = 0.3
-	assertEquals(-1, match_bitap_('abcdefghijk', 'efxyhi', 1))
+	assertEquals(-1, dmp.match_bitap_('abcdefghijk', 'efxyhi', 1))
 
 	dmp.Match_Threshold = 0.0
-	assertEquals(1, match_bitap_('abcdefghijk', 'bcdef', 1))
+	assertEquals(1, dmp.match_bitap_('abcdefghijk', 'bcdef', 1))
 	dmp.Match_Threshold = 0.5
 
 	// Multiple select.
-	assertEquals(0, match_bitap_('abcdexyzabcde', 'abccde', 3))
+	assertEquals(0, dmp.match_bitap_('abcdexyzabcde', 'abccde', 3))
 
-	assertEquals(8, match_bitap_('abcdexyzabcde', 'abccde', 5))
+	assertEquals(8, dmp.match_bitap_('abcdexyzabcde', 'abccde', 5))
 
 	// Distance test.
 	dmp.Match_Distance = 10 // Strict location.
-	assertEquals(-1, match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
+	assertEquals(-1, dmp.match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
 
-	assertEquals(0, match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdxxefg', 1))
+	assertEquals(0, dmp.match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdxxefg', 1))
 
 	dmp.Match_Distance = 1000 // Loose location.
-	assertEquals(0, match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
+	assertEquals(0, dmp.match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
 })
 
-Deno.test('MatchMain', function testMatchMain() {
+Deno.test(dmp.match_main.name, () => {
 	// Full match.
 	// Shortcut matches.
 	assertEquals(0, dmp.match_main('abcdef', 'abcdef', 1000))
@@ -1076,7 +1047,7 @@ Deno.test('MatchMain', function testMatchMain() {
 
 // PATCH TEST FUNCTIONS
 
-Deno.test('PatchObj', function testPatchObj() {
+Deno.test(Patch.name, () => {
 	// Patch Object.
 	const p = new Patch()
 	p.start1 = 20
@@ -1096,7 +1067,7 @@ Deno.test('PatchObj', function testPatchObj() {
 	assertEquals('@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n %0Alaz\n', strp)
 })
 
-Deno.test('PatchFromText', function testPatchFromText() {
+Deno.test(dmp.patch_fromText.name, () => {
 	assertEquals([], dmp.patch_fromText(''))
 	// @ts-expect-error null
 	assertEquals([], dmp.patch_fromText(null))
@@ -1122,7 +1093,7 @@ Deno.test('PatchFromText', function testPatchFromText() {
 	}
 })
 
-Deno.test('PatchToText', function testPatchToText() {
+Deno.test(dmp.patch_toText.name, () => {
 	let strp = '@@ -21,18 +22,17 @@\n jump\n-s\n+ed\n  over \n-the\n+a\n  laz\n'
 	let p = dmp.patch_fromText(strp)
 	assertEquals(strp, dmp.patch_toText(p))
@@ -1132,7 +1103,7 @@ Deno.test('PatchToText', function testPatchToText() {
 	assertEquals(strp, dmp.patch_toText(p))
 })
 
-Deno.test('PatchAddContext', function testPatchAddContext() {
+Deno.test(dmp.patch_addContext_.name, () => {
 	// testing private method
 	const patch_addContext_ = dmp['patch_addContext_'].bind(dmp)
 
@@ -1157,7 +1128,7 @@ Deno.test('PatchAddContext', function testPatchAddContext() {
 	assertEquals('@@ -1,27 +1,28 @@\n Th\n-e\n+at\n  quick brown fox jumps. \n', p.toString())
 })
 
-Deno.test('PatchMake', function testPatchMake() {
+Deno.test(dmp.patch_make.name, () => {
 	// Null case.
 	let patches = dmp.patch_make('', '')
 	assertEquals('', dmp.patch_toText(patches))
@@ -1229,7 +1200,7 @@ Deno.test('PatchMake', function testPatchMake() {
 	}
 })
 
-Deno.test('PatchSplitMax', function testPatchSplitMax() {
+Deno.test(dmp.patch_splitMax.name, () => {
 	// Assumes that dmp.Match_MaxBits is 32.
 	let patches = dmp.patch_make(
 		'abcdefghijklmnopqrstuvwxyz01234567890',
@@ -1267,7 +1238,7 @@ Deno.test('PatchSplitMax', function testPatchSplitMax() {
 	)
 })
 
-Deno.test('PatchAddPadding', function testPatchAddPadding() {
+Deno.test(dmp.patch_addPadding.name, () => {
 	// Both edges full.
 	let patches = dmp.patch_make('', 'test')
 	assertEquals('@@ -0,0 +1,4 @@\n+test\n', dmp.patch_toText(patches))
@@ -1287,7 +1258,7 @@ Deno.test('PatchAddPadding', function testPatchAddPadding() {
 	assertEquals('@@ -5,8 +5,12 @@\n XXXX\n+test\n YYYY\n', dmp.patch_toText(patches))
 })
 
-Deno.test('PatchApply', function testPatchApply() {
+Deno.test(dmp.patch_apply.name, () => {
 	dmp.Match_Distance = 1000
 	dmp.Match_Threshold = 0.5
 	dmp.Patch_DeleteThreshold = 0.5
@@ -1379,175 +1350,4 @@ Deno.test('PatchApply', function testPatchApply() {
 	patches = dmp.patch_make('y', 'y123')
 	results = dmp.patch_apply(patches, 'x')
 	assertEquals(['x123', [true]], results)
-})
-
-Deno.test('diff', async (t) => {
-	await t.step('chars', () => {
-		assertDiffsEqual(
-			[[-1, 'abc'], [0, 'd'], [1, 'efg']],
-			differ.diff('abcd', 'defg'),
-		)
-	})
-
-	await t.step('non-BMP', async (t) => {
-		await t.step('emojis', () => {
-			assertDiffsEqual(
-				[[-1, '💫'], [1, '💩']],
-				differ.diff('💫', '💩'),
-			)
-		})
-
-		await t.step('can opt into old code unit behavior', () => {
-			const segmenter = (str: string) => str.split('')
-
-			assertDiffsEqual(
-				[[0, '\ud83d'], [-1, '\udcab'], [1, '\udca9']],
-				differ.diff('💫', '💩', { segmenter }),
-			)
-
-			assertEquals(
-				differ.diffCodeUnits('💫', '💩'),
-				differ.diff('💫', '💩', { segmenter }),
-			)
-		})
-	})
-
-	await t.step('words', async (t) => {
-		await t.step('default word segmenter', () => {
-			assertDiffsEqual(
-				[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world!']],
-				differ.diff('Hello, world!', 'Goodbye, world!', { segmenter: segmenters.word }),
-			)
-		})
-
-		await t.step('xml', () => {
-			assertDiffsEqual(
-				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
-				differ.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
-			)
-
-			assertDiffsEqual(
-				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
-				differ.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
-			)
-		})
-
-		await t.step('custom word segmenter', () => {
-			const segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' })
-
-			assertDiffsEqual(
-				[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
-				differ.diff('两只小蜜蜂', '两只老虎', { segmenter }),
-			)
-		})
-	})
-
-	await t.step('parity with line diff function from docs', () => {
-		// https://github.com/google/diff-match-patch/wiki/Line-or-Word-Diffs
-
-		function diffLineMode(text1: string, text2: string) {
-			const dmp = new DiffMatchPatch()
-			const { chars1, chars2, lineArray } = dmp['diff_linesToChars_'](text1, text2)
-			const diffs = dmp.diff_main(chars1, chars2, false)
-			dmp['diff_charsToLines_'](diffs, lineArray)
-
-			return diffs
-		}
-
-		const str1 = '11\n12\n13\n14\n15'
-		const str2 = '11\n12\n14\n15'
-
-		assertEquals(
-			diffLineMode(str1, str2),
-			differ.diff(str1, str2, { segmenter: segmenters.line }),
-		)
-	})
-})
-
-Deno.test('diffWithin', async (t) => {
-	await t.step('chars', () => {
-		const text1 = `Line One\nLine Two\nLine Three\n`
-		const text2 = `Line One\nLine 2\nLine Three\nLine Four\nLine Five\n`
-
-		const diffs = differ.diff(text1, text2, { segmenter: segmenters.line, join: false })
-		const diff2d = differ.diffWithin(diffs, { segmenter: segmenters.word })
-
-		assertDiffsEqual2d(
-			diff2d,
-			[
-				[[0, 'Line One\n']],
-				[[0, 'Line '], [-1, 'Two'], [1, '2'], [0, '\n']],
-				[[0, 'Line Three\n']],
-				[[1, 'Line Four\n']],
-				[[1, 'Line Five\n']],
-			],
-		)
-	})
-})
-
-Deno.test('README', () => {
-	const differ = new Differ()
-
-	const str1 = 'Hello, world! 💫'
-	const str2 = 'Goodbye, world! 💩'
-
-	// default behavior: UTF-8 char diff
-	assertDiffsEqual(
-		differ.diff(str1, str2),
-		[[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
-	)
-
-	// word diff with `Intl.Segmenter`
-	assertDiffsEqual(
-		differ.diff(str1, str2, { segmenter: segmenters.word }),
-		[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world! '], [-1, '💫'], [1, '💩']],
-	)
-
-	// pass in a custom `Intl.Segmenter` instance
-	assertDiffsEqual(
-		differ.diff('两只小蜜蜂', '两只老虎', { segmenter: new Intl.Segmenter('zh-CN', { granularity: 'word' }) }),
-		[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
-	)
-
-	// line diff
-	assertDiffsEqual(
-		differ.diff(str1, str2, { segmenter: segmenters.line }),
-		[[-1, 'Hello, world! 💫'], [1, 'Goodbye, world! 💩']],
-	)
-
-	// custom UTF-16 code-unit diff (equivalent to using `diff_main` directly... but less performant)
-	assertDiffsEqual(
-		differ.diff(str1, str2, { segmenter: (str) => str.split('') }),
-		[[-1, 'Hell'], [1, 'G'], [0, 'o'], [1, 'odbye'], [0, ', world! \ud83d'], [-1, '\udcab'], [1, '\udca9']],
-	)
-
-	assertDiffsEqual(
-		differ.diff(str1, str2, { segmenter: (str) => str.split('') }),
-		differ.diffCodeUnits(str1, str2),
-	)
-})
-
-Deno.test(SegmentCodec.name, async (t) => {
-	await t.step('happy path', () => {
-		const codec = new SegmentCodec()
-		assertEquals(codec.encode('abc', 10), '\x01\x02\x03')
-		assertEquals(codec.encode('dea', 10), '\x04\x05\x01')
-
-		assertEquals(codec.decode('\x01\x02\x03'), ['a', 'b', 'c'])
-		assertEquals(codec.decode('\x03\x05\x01'), ['c', 'e', 'a'])
-	})
-
-	await t.step('exceeds max', () => {
-		const codec = new SegmentCodec()
-		assertEquals(codec.encode('abc', 2), '\x01\x02')
-
-		assertThrows(
-			() => codec.encode('xyz', 2),
-			AssertionError,
-			'Unreachable: This is a bug in the library.',
-		)
-
-		assertEquals(codec.encode('xyz', 3), '\x03')
-		assertEquals(codec.decode('\x01\x02\x03'), ['a', 'bc', 'xyz'])
-	})
 })
