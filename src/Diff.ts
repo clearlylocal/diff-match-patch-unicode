@@ -71,6 +71,7 @@ export class Diff {
 }
 
 type CustomInspect = (this: Diff, _: unknown, opts: { colors: boolean }) => string
+
 /**
  * Actually always yields a single DiffOperation then a single string, but TS currently can't express that in an
  * iterator type.

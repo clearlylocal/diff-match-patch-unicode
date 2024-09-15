@@ -1,8 +1,9 @@
 import { assert, assertEquals } from '@std/assert'
-import { DiffMatchPatch } from '../src/DiffMatchPatch.ts'
+import { DiffMatchPatchFull as DiffMatchPatch } from '../src/DiffMatchPatchFull.ts'
 import { Diff, DiffOperation } from '../src/Diff.ts'
 import { Patch } from '../src/Patch.ts'
-import { assertDiffsEqual, makeDiffs } from './testUtils.ts'
+import { assertDiffsEqual } from './testUtils.ts'
+import { makeDiffs } from '../src/utils.ts'
 
 // Tests here are modified from `google/diff-match-patch` tests
 // to ensure parity after the various refactoring (ESM, classes, TS, etc.)
@@ -51,72 +52,72 @@ Deno.test(dmp.diff_commonSuffix.name, () => {
 	assertEquals(4, dmp.diff_commonSuffix('1234', 'xyz1234'))
 })
 
-Deno.test(dmp.diff_commonOverlap_.name, () => {
+Deno.test(dmp['diff_commonOverlap_'].name, () => {
 	// Detect any suffix/prefix overlap.
 	// Null case.
-	assertEquals(0, dmp.diff_commonOverlap_('', 'abcd'))
+	assertEquals(0, dmp['diff_commonOverlap_']('', 'abcd'))
 
 	// Whole case.
-	assertEquals(3, dmp.diff_commonOverlap_('abc', 'abcd'))
+	assertEquals(3, dmp['diff_commonOverlap_']('abc', 'abcd'))
 
 	// No overlap.
-	assertEquals(0, dmp.diff_commonOverlap_('123456', 'abcd'))
+	assertEquals(0, dmp['diff_commonOverlap_']('123456', 'abcd'))
 
 	// Overlap.
-	assertEquals(3, dmp.diff_commonOverlap_('123456xxx', 'xxxabcd'))
+	assertEquals(3, dmp['diff_commonOverlap_']('123456xxx', 'xxxabcd'))
 
 	// Unicode.
 	// Some overly clever languages (C#) may treat ligatures as equal to their
 	// component letters.  E.g. U+FB01 == 'fi'
-	assertEquals(0, dmp.diff_commonOverlap_('fi', '\ufb01i'))
+	assertEquals(0, dmp['diff_commonOverlap_']('fi', '\ufb01i'))
 })
 
-Deno.test(dmp.diff_halfMatch_.name, () => {
+Deno.test(dmp['diff_halfMatch_'].name, () => {
 	// Detect a halfmatch.
 	dmp.Diff_Timeout = 1
 	// No match.
-	assertEquals(null, dmp.diff_halfMatch_('1234567890', 'abcdef'))
+	assertEquals(null, dmp['diff_halfMatch_']('1234567890', 'abcdef'))
 
-	assertEquals(null, dmp.diff_halfMatch_('12345', '23'))
+	assertEquals(null, dmp['diff_halfMatch_']('12345', '23'))
 
 	// Single Match.
-	assertEquals(['12', '90', 'a', 'z', '345678'], dmp.diff_halfMatch_('1234567890', 'a345678z'))
+	assertEquals(['12', '90', 'a', 'z', '345678'], dmp['diff_halfMatch_']('1234567890', 'a345678z'))
 
-	assertEquals(['a', 'z', '12', '90', '345678'], dmp.diff_halfMatch_('a345678z', '1234567890'))
+	assertEquals(['a', 'z', '12', '90', '345678'], dmp['diff_halfMatch_']('a345678z', '1234567890'))
 
-	assertEquals(['abc', 'z', '1234', '0', '56789'], dmp.diff_halfMatch_('abc56789z', '1234567890'))
+	assertEquals(['abc', 'z', '1234', '0', '56789'], dmp['diff_halfMatch_']('abc56789z', '1234567890'))
 
-	assertEquals(['a', 'xyz', '1', '7890', '23456'], dmp.diff_halfMatch_('a23456xyz', '1234567890'))
+	assertEquals(['a', 'xyz', '1', '7890', '23456'], dmp['diff_halfMatch_']('a23456xyz', '1234567890'))
 
 	// Multiple Matches.
 	assertEquals(
 		['12123', '123121', 'a', 'z', '1234123451234'],
-		dmp.diff_halfMatch_('121231234123451234123121', 'a1234123451234z'),
+		dmp['diff_halfMatch_']('121231234123451234123121', 'a1234123451234z'),
 	)
 
 	assertEquals(
 		['', '-=-=-=-=-=', 'x', '', 'x-=-=-=-=-=-=-='],
-		dmp.diff_halfMatch_('x-=-=-=-=-=-=-=-=-=-=-=-=', 'xx-=-=-=-=-=-=-='),
+		dmp['diff_halfMatch_']('x-=-=-=-=-=-=-=-=-=-=-=-=', 'xx-=-=-=-=-=-=-='),
 	)
 
 	assertEquals(
 		['-=-=-=-=-=', '', '', 'y', '-=-=-=-=-=-=-=y'],
-		dmp.diff_halfMatch_('-=-=-=-=-=-=-=-=-=-=-=-=y', '-=-=-=-=-=-=-=yy'),
+		dmp['diff_halfMatch_']('-=-=-=-=-=-=-=-=-=-=-=-=y', '-=-=-=-=-=-=-=yy'),
 	)
 
 	// Non-optimal halfmatch.
 	// Optimal diff would be -q+x=H-i+e=lloHe+Hu=llo-Hew+y not -qHillo+x=HelloHe-w+Hulloy
-	assertEquals(['qHillo', 'w', 'x', 'Hulloy', 'HelloHe'], dmp.diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
+	assertEquals(['qHillo', 'w', 'x', 'Hulloy', 'HelloHe'], dmp['diff_halfMatch_']('qHilloHelloHew', 'xHelloHeHulloy'))
 
 	// Optimal no halfmatch.
 	dmp.Diff_Timeout = 0
-	assertEquals(null, dmp.diff_halfMatch_('qHilloHelloHew', 'xHelloHeHulloy'))
+	assertEquals(null, dmp['diff_halfMatch_']('qHilloHelloHew', 'xHelloHeHulloy'))
 })
 
-Deno.test(dmp.diff_linesToChars_.name, () => {
+Deno.test(dmp['diff_linesToChars_'].name, () => {
 	function assertLinesToCharsResultEquals(
-		a: ReturnType<typeof dmp.diff_linesToChars_>,
-		b: ReturnType<typeof dmp.diff_linesToChars_>,
+		a: ReturnType<typeof dmp['diff_linesToChars_']>,
+		b: ReturnType<typeof dmp['diff_linesToChars_']>,
 	) {
 		assertEquals(a.chars1, b.chars1)
 		assertEquals(a.chars2, b.chars2)
@@ -128,17 +129,17 @@ Deno.test(dmp.diff_linesToChars_.name, () => {
 		chars1: '\x01\x02\x01',
 		chars2: '\x02\x01\x02',
 		lineArray: ['', 'alpha\n', 'beta\n'],
-	}, dmp.diff_linesToChars_('alpha\nbeta\nalpha\n', 'beta\nalpha\nbeta\n'))
+	}, dmp['diff_linesToChars_']('alpha\nbeta\nalpha\n', 'beta\nalpha\nbeta\n'))
 
 	assertLinesToCharsResultEquals({
 		chars1: '',
 		chars2: '\x01\x02\x03\x03',
 		lineArray: ['', 'alpha\r\n', 'beta\r\n', '\r\n'],
-	}, dmp.diff_linesToChars_('', 'alpha\r\nbeta\r\n\r\n\r\n'))
+	}, dmp['diff_linesToChars_']('', 'alpha\r\nbeta\r\n\r\n\r\n'))
 
 	assertLinesToCharsResultEquals(
 		{ chars1: '\x01', chars2: '\x02', lineArray: ['', 'a', 'b'] },
-		dmp.diff_linesToChars_('a', 'b'),
+		dmp['diff_linesToChars_']('a', 'b'),
 	)
 
 	// More than 256 to reveal any 8-bit limitations.
@@ -156,15 +157,15 @@ Deno.test(dmp.diff_linesToChars_.name, () => {
 	lineList.unshift('')
 	assertLinesToCharsResultEquals(
 		{ chars1: chars, chars2: '', lineArray: lineList },
-		dmp.diff_linesToChars_(lines, ''),
+		dmp['diff_linesToChars_'](lines, ''),
 	)
 })
 
-Deno.test(`${dmp.diff_charsToLines_.name} and ${dmp.diff_linesToChars_.name}`, () => {
+Deno.test(`${dmp['diff_charsToLines_'].name} and ${dmp['diff_linesToChars_'].name}`, () => {
 	// Convert chars up to lines.
 	let diffs = makeDiffs([[DiffOperation.Equal, '\x01\x02\x01'], [DiffOperation.Insert, '\x02\x01\x02']])
 
-	dmp.diff_charsToLines_(diffs, ['', 'alpha\n', 'beta\n'])
+	dmp['diff_charsToLines_'](diffs, ['', 'alpha\n', 'beta\n'])
 	assertDiffsEqual(
 		[[DiffOperation.Equal, 'alpha\nbeta\nalpha\n'], [DiffOperation.Insert, 'beta\nalpha\nbeta\n']],
 		diffs,
@@ -184,7 +185,7 @@ Deno.test(`${dmp.diff_charsToLines_.name} and ${dmp.diff_linesToChars_.name}`, (
 	assertEquals(n, chars.length)
 	lineList.unshift('')
 	diffs = [new Diff(DiffOperation.Delete, chars)]
-	dmp.diff_charsToLines_(diffs, lineList)
+	dmp['diff_charsToLines_'](diffs, lineList)
 	assertEquals([new Diff(DiffOperation.Delete, lines)], diffs)
 
 	// More than 65536 to verify any 16-bit limitation.
@@ -193,9 +194,9 @@ Deno.test(`${dmp.diff_charsToLines_.name} and ${dmp.diff_linesToChars_.name}`, (
 		lineList[i] = i + '\n'
 	}
 	chars = lineList.join('')
-	const results = dmp.diff_linesToChars_(chars, '')
+	const results = dmp['diff_linesToChars_'](chars, '')
 	diffs = [new Diff(DiffOperation.Insert, results.chars1)]
-	dmp.diff_charsToLines_(diffs, results.lineArray)
+	dmp['diff_charsToLines_'](diffs, results.lineArray)
 	assertEquals(chars, diffs[0][1])
 })
 
@@ -601,7 +602,7 @@ Deno.test(dmp.diff_prettyHtml.name, () => {
 	)
 })
 
-Deno.test(`${dmp.diff_text1.name} and ${dmp.diff_text2.name}`, () => {
+Deno.test(`${dmp['diff_text1'].name} and ${dmp['diff_text2'].name}`, () => {
 	// Compute the source and destination texts.
 	const diffs = makeDiffs([
 		[DiffOperation.Equal, 'jump'],
@@ -748,7 +749,7 @@ Deno.test(dmp.diff_levenshtein.name, () => {
 	)
 })
 
-Deno.test(dmp.diff_bisect_.name, () => {
+Deno.test(dmp['diff_bisect_'].name, () => {
 	// Normal.
 	const a = 'cat'
 	const b = 'map'
@@ -961,58 +962,58 @@ Deno.test(dmp.diff_main.name, () => {
 
 // MATCH TEST FUNCTIONS
 
-Deno.test(dmp.match_alphabet_.name, () => {
+Deno.test(dmp['match_alphabet_'].name, () => {
 	// Initialise the bitmasks for Bitap.
 	// Unique.
-	assertEquals({ 'a': 4, 'b': 2, 'c': 1 }, dmp.match_alphabet_('abc'))
+	assertEquals({ 'a': 4, 'b': 2, 'c': 1 }, dmp['match_alphabet_']('abc'))
 
 	// Duplicates.
-	assertEquals({ 'a': 37, 'b': 18, 'c': 8 }, dmp.match_alphabet_('abcaba'))
+	assertEquals({ 'a': 37, 'b': 18, 'c': 8 }, dmp['match_alphabet_']('abcaba'))
 })
 
-Deno.test(dmp.match_bitap_.name, () => {
+Deno.test(dmp['match_bitap_'].name, () => {
 	// Bitap algorithm.
 	dmp.Match_Distance = 100
 	dmp.Match_Threshold = 0.5
 	// Exact matches.
-	assertEquals(5, dmp.match_bitap_('abcdefghijk', 'fgh', 5))
+	assertEquals(5, dmp['match_bitap_']('abcdefghijk', 'fgh', 5))
 
-	assertEquals(5, dmp.match_bitap_('abcdefghijk', 'fgh', 0))
+	assertEquals(5, dmp['match_bitap_']('abcdefghijk', 'fgh', 0))
 
 	// Fuzzy matches.
-	assertEquals(4, dmp.match_bitap_('abcdefghijk', 'efxhi', 0))
+	assertEquals(4, dmp['match_bitap_']('abcdefghijk', 'efxhi', 0))
 
-	assertEquals(2, dmp.match_bitap_('abcdefghijk', 'cdefxyhijk', 5))
+	assertEquals(2, dmp['match_bitap_']('abcdefghijk', 'cdefxyhijk', 5))
 
-	assertEquals(-1, dmp.match_bitap_('abcdefghijk', 'bxy', 1))
+	assertEquals(-1, dmp['match_bitap_']('abcdefghijk', 'bxy', 1))
 
 	// Overflow.
-	assertEquals(2, dmp.match_bitap_('123456789xx0', '3456789x0', 2))
+	assertEquals(2, dmp['match_bitap_']('123456789xx0', '3456789x0', 2))
 
 	// Threshold test.
 	dmp.Match_Threshold = 0.4
-	assertEquals(4, dmp.match_bitap_('abcdefghijk', 'efxyhi', 1))
+	assertEquals(4, dmp['match_bitap_']('abcdefghijk', 'efxyhi', 1))
 
 	dmp.Match_Threshold = 0.3
-	assertEquals(-1, dmp.match_bitap_('abcdefghijk', 'efxyhi', 1))
+	assertEquals(-1, dmp['match_bitap_']('abcdefghijk', 'efxyhi', 1))
 
 	dmp.Match_Threshold = 0.0
-	assertEquals(1, dmp.match_bitap_('abcdefghijk', 'bcdef', 1))
+	assertEquals(1, dmp['match_bitap_']('abcdefghijk', 'bcdef', 1))
 	dmp.Match_Threshold = 0.5
 
 	// Multiple select.
-	assertEquals(0, dmp.match_bitap_('abcdexyzabcde', 'abccde', 3))
+	assertEquals(0, dmp['match_bitap_']('abcdexyzabcde', 'abccde', 3))
 
-	assertEquals(8, dmp.match_bitap_('abcdexyzabcde', 'abccde', 5))
+	assertEquals(8, dmp['match_bitap_']('abcdexyzabcde', 'abccde', 5))
 
 	// Distance test.
 	dmp.Match_Distance = 10 // Strict location.
-	assertEquals(-1, dmp.match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
+	assertEquals(-1, dmp['match_bitap_']('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
 
-	assertEquals(0, dmp.match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdxxefg', 1))
+	assertEquals(0, dmp['match_bitap_']('abcdefghijklmnopqrstuvwxyz', 'abcdxxefg', 1))
 
 	dmp.Match_Distance = 1000 // Loose location.
-	assertEquals(0, dmp.match_bitap_('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
+	assertEquals(0, dmp['match_bitap_']('abcdefghijklmnopqrstuvwxyz', 'abcdefg', 24))
 })
 
 Deno.test(dmp.match_main.name, () => {
@@ -1103,28 +1104,25 @@ Deno.test(dmp.patch_toText.name, () => {
 	assertEquals(strp, dmp.patch_toText(p))
 })
 
-Deno.test(dmp.patch_addContext_.name, () => {
-	// testing private method
-	const patch_addContext_ = dmp['patch_addContext_'].bind(dmp)
-
+Deno.test(dmp['patch_addContext_'].name, () => {
 	dmp.Patch_Margin = 4
 	let p = dmp.patch_fromText('@@ -21,4 +21,10 @@\n-jump\n+somersault\n')[0]
-	patch_addContext_(p, 'The quick brown fox jumps over the lazy dog.')
+	dmp['patch_addContext_'](p, 'The quick brown fox jumps over the lazy dog.')
 	assertEquals('@@ -17,12 +17,18 @@\n fox \n-jump\n+somersault\n s ov\n', p.toString())
 
 	// Same, but not enough trailing context.
 	p = dmp.patch_fromText('@@ -21,4 +21,10 @@\n-jump\n+somersault\n')[0]
-	patch_addContext_(p, 'The quick brown fox jumps.')
+	dmp['patch_addContext_'](p, 'The quick brown fox jumps.')
 	assertEquals('@@ -17,10 +17,16 @@\n fox \n-jump\n+somersault\n s.\n', p.toString())
 
 	// Same, but not enough leading context.
 	p = dmp.patch_fromText('@@ -3 +3,2 @@\n-e\n+at\n')[0]
-	patch_addContext_(p, 'The quick brown fox jumps.')
+	dmp['patch_addContext_'](p, 'The quick brown fox jumps.')
 	assertEquals('@@ -1,7 +1,8 @@\n Th\n-e\n+at\n  qui\n', p.toString())
 
 	// Same, but with ambiguity.
 	p = dmp.patch_fromText('@@ -3 +3,2 @@\n-e\n+at\n')[0]
-	patch_addContext_(p, 'The quick brown fox jumps.  The quick brown fox crashes.')
+	dmp['patch_addContext_'](p, 'The quick brown fox jumps.  The quick brown fox crashes.')
 	assertEquals('@@ -1,27 +1,28 @@\n Th\n-e\n+at\n  quick brown fox jumps. \n', p.toString())
 })
 

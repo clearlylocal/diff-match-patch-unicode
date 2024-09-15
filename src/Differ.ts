@@ -1,9 +1,18 @@
 import { Diff, DiffOperation } from './Diff.ts'
-import { DiffMatchPatch, MAX_BMP_CODEPOINT, TWO_THIRDS_OF_MAX_BMP_CODEPOINT } from './DiffMatchPatch.ts'
+import { DiffMatchPatch, MAX_SEGMENTS, MAX_SEGMENTS_2_3 } from './DiffMatchPatch.ts'
 import { SegmentCodec, StringIter } from './SegmentCodec.ts'
 
 /**
- * Options for the {@linkcode Differ} class.
+ * Instance-level configuration options for the {@linkcode Differ} class to pass to the underlying
+ * {@linkcode DiffMatchPatch} instance.
+ */
+export type DiffMatchPatchConfig = {
+	[K in 'Diff_Timeout' | 'Diff_EditCost' as Uncapitalize<GetK<K>>]: DiffMatchPatch[K]
+}
+type GetK<Type extends string> = Type extends `Diff_${infer U}` ? U : never
+
+/**
+ * Options for methods of the {@linkcode Differ} class.
  */
 export type DiffOptions = {
 	/**
@@ -36,7 +45,12 @@ type SimpleSegmenter = (str: string) => StringIter
  */
 export const segmenters: Record<'char' | 'line' | 'grapheme' | 'word' | 'sentence', Segmenter> = {
 	char: (str) => str,
-	line: (str) => str.split('\n').map((x, i, a) => i === a.length - 1 ? x : x + '\n'),
+	*line(str) {
+		for (let i = 0, n = 0; i < str.length; i = n + 1) {
+			n = (str.length + str.indexOf('\n', i)) % str.length
+			yield str.slice(i, n + 1)
+		}
+	},
 	grapheme: new Intl.Segmenter('en-US', { granularity: 'grapheme' }),
 	word: new Intl.Segmenter('en-US', { granularity: 'word' }),
 	sentence: new Intl.Segmenter('en-US', { granularity: 'sentence' }),
@@ -55,19 +69,43 @@ const defaultDiffOptions: DiffOptions = {
 export class Differ {
 	#dmp: DiffMatchPatch
 
-	constructor() {
+	constructor(config?: Partial<DiffMatchPatchConfig>) {
 		this.#dmp = new DiffMatchPatch()
+
+		for (const [_k, _v] of Object.entries(config ?? {})) {
+			const k = `Diff_${_k.charAt(0).toUpperCase() + _k.slice(1) as Capitalize<
+				keyof DiffMatchPatchConfig
+			>}` as const
+			const v = _v as DiffMatchPatch[typeof k]
+			this.#dmp[k] = v
+		}
 	}
 
-	set diffTimeout(val: number) {
-		this.#dmp.Diff_Timeout = val
-	}
-	get diffTimeout(): number {
-		return this.#dmp.Diff_Timeout
+	#diffInternal(before: string, after: string, options: DiffOptions, maxBefore: number, maxAfter: number): {
+		encodedDiffs: Diff[]
+		codec?: SegmentCodec
+	} {
+		const { segmenter, checkLines } = options
+
+		// if no surrogate pairs present, we're entirely within the BMP, so no need to encode
+		if (segmenter === segmenters.char && !/[\uD800-\uDBFF]/.test([before, after].join(''))) {
+			return { encodedDiffs: this.#dmp.diff_main(before, after, checkLines, this.#deadline) }
+		}
+
+		const segment = this.#toSegmentFn(segmenter)
+
+		const codec = new SegmentCodec()
+
+		const chars1 = codec.encode(segment(before), maxBefore)
+		const chars2 = codec.encode(segment(after), maxAfter)
+
+		const encodedDiffs = this.#dmp.diff_main(chars1, chars2, checkLines, this.#deadline)
+
+		return { encodedDiffs, codec }
 	}
 
 	/**
-	 * Diff two strings. Unicode-aware by default, including non-BMP characters.
+	 * Diff two strings. Fully Unicode-aware by default.
 	 *
 	 * Pass a `segmenter` option to customize the units of calculation for the diff (char, line, word, grapheme, sentence,
 	 * etc).
@@ -93,43 +131,31 @@ export class Differ {
 	 * differ.diff(str1, str2, { segmenter: (str) => str.split('') }) // [-1, "Hell"], [1, "G"], [0, "o"], [1, "odbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
 	 * ```
 	 */
-	diff(str1: string, str2: string, options?: Partial<DiffOptions>): Diff[] {
-		if (str1 === str2) {
+	diff(before: string, after: string, options?: Partial<DiffOptions>): Diff[] {
+		if (before === after) {
 			// no need to go any further if both strings are the same
-			return str1 ? [new Diff(DiffOperation.Equal, str1)] : []
+			return before ? [new Diff(DiffOperation.Equal, before)] : []
 		}
 
 		const opts = { ...defaultDiffOptions, ...options }
-		const { segmenter, join, checkLines } = opts
+		const { join } = opts
 
-		if (
-			// if no surrogate pairs present, we're entirely within the BMP, so no need to encode
-			segmenter === segmenters.char && !/[\uD800-\uDBFF]/.test([str1, str2].join('\n'))
-		) {
-			return this.diffCodeUnits(str1, str2, opts)
-		}
-
-		const segment = this.#toSegmentFn(segmenter)
-
-		const codec = new SegmentCodec()
-
-		const chars1 = codec.encode(segment(str1), TWO_THIRDS_OF_MAX_BMP_CODEPOINT)
-		const chars2 = codec.encode(segment(str2), MAX_BMP_CODEPOINT)
-
-		const diffs = this.#dmp.diff_main(chars1, chars2, checkLines, this.#deadline)
+		const { encodedDiffs, codec } = this.#diffInternal(before, after, opts, MAX_SEGMENTS_2_3, MAX_SEGMENTS)
+		if (codec == null) return encodedDiffs
 
 		if (!join) {
-			return diffs.flatMap(
+			return encodedDiffs.flatMap(
 				({ op, text }) => codec.decode(text).filter(Boolean).map((segment) => new Diff(op, segment)),
 			)
 		}
 
-		return diffs.map(({ op, text }) => new Diff(op, codec.decode(text).join(''))).filter((x) => x.text)
+		return encodedDiffs.map(({ op, text }) => new Diff(op, codec.decode(text).join(''))).filter((x) => x.text)
 	}
 
 	/**
-	 * Diff two strings by UTF-16 code unit. May not work for non-BMP characters. This is simply a wrapper around
-	 * diff-match-patch's `diff_main`.
+	 * Diff two strings by UTF-16 code unit. May not work as expected for non-BMP characters. This is simply a wrapper
+	 * around diff-match-patch's `diff_main`, which may be a preferable way to create char diffs compared to
+	 * {@linkcode diff} where full Unicode support is not critical and in performance-sensitive scenarios.
 	 *
 	 * @example
 	 * ```ts
@@ -137,20 +163,31 @@ export class Differ {
 	 *
 	 * const differ = new Differ()
 	 *
-	 * const str1 = 'Hello, world! 💫'
-	 * const str2 = 'Goodbye, world! 💩'
-	 * differ.diffCodeUnits(str1, str2) // [-1, "Hell"], [1, "G"], [0, "o"], [1, "odbye"], [0, ", world! \ud83d"], [-1, "\udcab"], [1, "\udca9"]
+	 * const str1 = 'Hello, world!'
+	 * const str2 = 'Goodbye, world!'
+	 *
+	 * // [-1, "Hell"], [1, "G"], [0, "o"], [1, "odbye"], [0, ", world!"]
+	 * differ.diffCodeUnits('Hello, world!', 'Goodbye, world!')
+	 *
+	 * // [0, "\ud83d"], [-1, "\udcab"], [1, "\udca9"]
+	 * differ.diffCodeUnits('💫', '💩')
 	 * ```
 	 */
-	diffCodeUnits(str1: string, str2: string, options?: Pick<Partial<DiffOptions>, 'checkLines'>): Diff[] {
+	diffCodeUnits(before: string, after: string, options?: Pick<Partial<DiffOptions>, 'checkLines'>): Diff[] {
 		const { checkLines } = { ...defaultDiffOptions, ...options }
-		return this.#dmp.diff_main(str1, str2, checkLines, this.#deadline)
+		return this.#dmp.diff_main(before, after, checkLines, this.#deadline)
 	}
 
 	#toSegmentFn(segmenter: Segmenter): SimpleSegmenter {
-		return segmenter instanceof Intl.Segmenter
-			? (str) => [...segmenter.segment(str)].map((x) => x.segment)
-			: segmenter
+		if (!(segmenter instanceof Intl.Segmenter)) {
+			return segmenter
+		}
+
+		return function* (str) {
+			for (const s of segmenter.segment(str)) {
+				yield s.segment
+			}
+		}
 	}
 
 	#deadline: number | null = null

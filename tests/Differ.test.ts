@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert'
 import { Differ, segmenters } from '../src/Differ.ts'
-import { DiffMatchPatch } from '../src/DiffMatchPatch.ts'
 import { assertDiffsEqual, assertDiffsEqual2d } from './testUtils.ts'
+import { DiffMatchPatchFull } from '../src/DiffMatchPatchFull.ts'
 
 const differ = new Differ()
 
@@ -79,10 +79,10 @@ Deno.test(differ.diff.name, async (t) => {
 		// https://github.com/google/diff-match-patch/wiki/Line-or-Word-Diffs
 
 		function diffLineMode(text1: string, text2: string) {
-			const dmp = new DiffMatchPatch()
-			const { chars1, chars2, lineArray } = dmp.diff_linesToChars_(text1, text2)
+			const dmp = new DiffMatchPatchFull()
+			const { chars1, chars2, lineArray } = dmp['diff_linesToChars_'](text1, text2)
 			const diffs = dmp.diff_main(chars1, chars2, false)
-			dmp.diff_charsToLines_(diffs, lineArray)
+			dmp['diff_charsToLines_'](diffs, lineArray)
 
 			return diffs
 		}

@@ -6,11 +6,11 @@
 	"exports": {
 		".": "./src/mod.ts",
 		"./Differ": "./src/Differ.ts",
-		"./Diff": "./src/Diff.ts"
+		"./Diff": "./src/Diff.ts",
+		"./utils": "./src/utils.ts"
 	},
 	"tasks": {
-		"test": "deno test --doc src tests",
-		"test-watch": "deno test --doc --watch src tests"
+		"test": "deno test --doc src tests"
 	},
 	"imports": {
 		"@clearlylocal/diff-match-patch-unicode": "./src/mod.ts",

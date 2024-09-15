@@ -14,8 +14,8 @@ export class SegmentCodec {
 		let out = ''
 
 		if (this.#n >= max) {
-			// Should be unreachable because we don't export `SegmentCodec` publicly and `diff` only calls `encode`
-			// twice per instance, first with `TWO_THIRDS_OF_MAX_BMP_CODEPOINT` and then with `MAX_BMP_CODEPOINT`.
+			// Should be unreachable because we don't expose `SegmentCodec` publicly, and subsequent internal calls to
+			// `encode` always use incrementally higher `max` values.
 			unreachable(
 				'This is a bug in the library. Please report at https://github.com/clearlylocal/diff-match-patch-unicode/issues',
 			)
