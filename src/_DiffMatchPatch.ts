@@ -61,7 +61,7 @@ export class DiffMatchPatch {
 			if (this.Diff_Timeout <= 0) {
 				opt_deadline = Number.MAX_VALUE
 			} else {
-				opt_deadline = (new Date()).getTime() + this.Diff_Timeout * 1000
+				opt_deadline = Date.now() + this.Diff_Timeout * 1000
 			}
 		}
 		const deadline = opt_deadline
@@ -279,7 +279,7 @@ export class DiffMatchPatch {
 		let k2end = 0
 		for (let d = 0; d < max_d; d++) {
 			// Bail out if deadline is reached.
-			if ((new Date()).getTime() > deadline) {
+			if (Date.now() > deadline) {
 				break
 			}
 

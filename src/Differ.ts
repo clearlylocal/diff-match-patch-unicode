@@ -137,13 +137,13 @@ export class Differ {
 	 * ```
 	 */
 	diff(before: string, after: string, options?: Partial<DiffOptions>): Diff[] {
-		if (before === after) {
-			// no need to go any further if both strings are the same
-			return before ? [new Diff(DiffOperation.Equal, before)] : []
-		}
-
 		const opts = { ...defaultDiffOptions, ...options, maxBefore: MAX_SEGMENTS_2_3, maxAfter: MAX_SEGMENTS }
 		const { join } = opts
+
+		if (before === after && join) {
+			// no need to go any further if both strings are the same (unless `join` is false)
+			return before ? [new Diff(DiffOperation.Equal, before)] : []
+		}
 
 		const { encodedDiffs, decode } = this.#diffInternal(before, after, opts)
 

@@ -1,6 +1,6 @@
 # Diff-Match-Patch Unicode [![JSR](https://jsr.io/badges/@clearlylocal/diff-match-patch-unicode)](https://jsr.io/@clearlylocal/diff-match-patch-unicode)
 
-Modern JS/TS and Unicode-friendly version of [Neil Fraser](https://github.com/NeilFraser)’s [`diff-match-patch`](https://github.com/google/diff-match-patch).
+Modern JS/TS and Unicode-friendly version of [Neil Fraser](https://github.com/NeilFraser)’s [`diff-match-patch`](https://github.com/google/diff-match-patch). Currently only supports diffing; matching and patching may be added in the future, depending on need.
 
 ## Usage
 

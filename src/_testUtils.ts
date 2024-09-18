@@ -6,5 +6,5 @@ export function assertDiffsEqual(d1: readonly DiffLike[], d2: readonly DiffLike[
 }
 
 export function assertDiffsEqual2d(d1: readonly DiffLike[][], d2: readonly DiffLike[][]) {
-	assertEquals(d1.map((x) => makeDiffs(x)), d2.map((x) => makeDiffs(x)))
+	assertEquals(d1.map(makeDiffs), d2.map(makeDiffs))
 }
