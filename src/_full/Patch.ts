@@ -1,5 +1,5 @@
-import { DiffOperation } from './Diff.ts'
-import type { Diff } from './Diff.ts'
+import { DiffOperation } from '../Diff.ts'
+import type { Diff } from '../Diff.ts'
 
 /**
  * Class representing one patch operation.

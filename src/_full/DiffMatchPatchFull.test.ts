@@ -1,9 +1,9 @@
 import { assert, assertEquals } from '@std/assert'
-import { DiffMatchPatchFull as DiffMatchPatch } from '../src/DiffMatchPatchFull.ts'
-import { Diff, DiffOperation } from '../src/Diff.ts'
-import { Patch } from '../src/Patch.ts'
-import { assertDiffsEqual } from './testUtils.ts'
-import { makeDiffs } from '../src/utils.ts'
+import { DiffMatchPatchFull as DiffMatchPatch } from './DiffMatchPatchFull.ts'
+import { Diff, DiffOperation } from '../Diff.ts'
+import { Patch } from './Patch.ts'
+import { assertDiffsEqual } from '../_testUtils.ts'
+import { makeDiffs } from '../utils.ts'
 
 // Tests here are modified from `google/diff-match-patch` tests
 // to ensure parity after the various refactoring (ESM, classes, TS, etc.)

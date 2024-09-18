@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert'
-import { Differ, segmenters } from '../src/Differ.ts'
-import { assertDiffsEqual, assertDiffsEqual2d } from './testUtils.ts'
-import { DiffMatchPatchFull } from '../src/DiffMatchPatchFull.ts'
+import { Differ, segmenters } from './Differ.ts'
+import { assertDiffsEqual, assertDiffsEqual2d } from './_testUtils.ts'
+import { DiffMatchPatchFull } from './_full/DiffMatchPatchFull.ts'
 
 const differ = new Differ()
 

@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert/equals'
-import { DiffLike, makeDiffs } from '../src/utils.ts'
+import { DiffLike, makeDiffs } from './utils.ts'
 
 export function assertDiffsEqual(d1: readonly DiffLike[], d2: readonly DiffLike[]) {
 	assertEquals(makeDiffs(d1), makeDiffs(d2))

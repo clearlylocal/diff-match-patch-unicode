@@ -50,7 +50,7 @@ export class SegmentCodec {
 		return out
 	}
 
-	decode(text: string): string[] {
-		return [...text].map((char) => this.#decoded.get(char) ?? '')
+	decode(encoded: string): string[] {
+		return [...encoded].map((char) => this.#decoded.get(char) ?? '')
 	}
 }

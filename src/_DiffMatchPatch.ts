@@ -1,6 +1,6 @@
 import { Diff, DiffOperation } from './Diff.ts'
 
-// reduced version - removed props/methods that are currently unused by `Differ`
+// reduced version - removed props/methods that are currently unused by `Differ` class
 
 /**
  * Diff Match and Patch
@@ -26,9 +26,9 @@ import { Diff, DiffOperation } from './Diff.ts'
  * @author fraser@google.com (Neil Fraser)
  */
 
-// max BMP code point. hard limit w/o significant refactoring
+/** `0xFFFF`: Max BMP code point. Hard limit w/o significant refactoring */
 export const MAX_SEGMENTS = 0xFFFF
-// round(MAX_SEGMENTS * 2 / 3)
+/** `= round(MAX_SEGMENTS * 2 / 3)` */
 export const MAX_SEGMENTS_2_3 = 0xAAAA
 
 /**

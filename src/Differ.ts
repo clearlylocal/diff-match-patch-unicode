@@ -1,6 +1,6 @@
 import { Diff, DiffOperation } from './Diff.ts'
-import { DiffMatchPatch, MAX_SEGMENTS, MAX_SEGMENTS_2_3 } from './DiffMatchPatch.ts'
-import { SegmentCodec, StringIter } from './SegmentCodec.ts'
+import { DiffMatchPatch, MAX_SEGMENTS, MAX_SEGMENTS_2_3 } from './_DiffMatchPatch.ts'
+import { SegmentCodec, StringIter } from './_SegmentCodec.ts'
 
 /**
  * Instance-level configuration options for the {@linkcode Differ} class to pass to the underlying
@@ -23,7 +23,9 @@ export type DiffOptions = {
 	 */
 	segmenter: Segmenter
 	/**
-	 * Whether to join adjacent diffs.
+	 * Whether to count consecutive diff operations containing multiple segments as a single diff.
+	 * If `true`, a diff may contain multiple segments; if `false`, each segment will be a separate diff.
+	 *
 	 * @default {true}
 	 */
 	join: boolean
@@ -81,15 +83,18 @@ export class Differ {
 		}
 	}
 
-	#diffInternal(before: string, after: string, options: DiffOptions, maxBefore: number, maxAfter: number): {
+	#diffInternal(before: string, after: string, options: DiffOptions & { maxBefore: number; maxAfter: number }): {
 		encodedDiffs: Diff[]
-		codec?: SegmentCodec
+		decode: (encoded: string) => string[]
 	} {
-		const { segmenter, checkLines } = options
+		const { segmenter, checkLines, join, maxBefore, maxAfter } = options
 
 		// if no surrogate pairs present, we're entirely within the BMP, so no need to encode
 		if (segmenter === segmenters.char && !/[\uD800-\uDBFF]/.test([before, after].join(''))) {
-			return { encodedDiffs: this.#dmp.diff_main(before, after, checkLines, this.#deadline) }
+			return {
+				encodedDiffs: this.#dmp.diff_main(before, after, checkLines, this.#deadline),
+				decode: join ? (x) => [x] : (x) => x.split(''),
+			}
 		}
 
 		const segment = this.#toSegmentFn(segmenter)
@@ -101,7 +106,7 @@ export class Differ {
 
 		const encodedDiffs = this.#dmp.diff_main(chars1, chars2, checkLines, this.#deadline)
 
-		return { encodedDiffs, codec }
+		return { encodedDiffs, decode: codec.decode.bind(codec) }
 	}
 
 	/**
@@ -137,19 +142,18 @@ export class Differ {
 			return before ? [new Diff(DiffOperation.Equal, before)] : []
 		}
 
-		const opts = { ...defaultDiffOptions, ...options }
+		const opts = { ...defaultDiffOptions, ...options, maxBefore: MAX_SEGMENTS_2_3, maxAfter: MAX_SEGMENTS }
 		const { join } = opts
 
-		const { encodedDiffs, codec } = this.#diffInternal(before, after, opts, MAX_SEGMENTS_2_3, MAX_SEGMENTS)
-		if (codec == null) return encodedDiffs
+		const { encodedDiffs, decode } = this.#diffInternal(before, after, opts)
 
 		if (!join) {
 			return encodedDiffs.flatMap(
-				({ op, text }) => codec.decode(text).filter(Boolean).map((segment) => new Diff(op, segment)),
+				({ op, text }) => decode(text).filter(Boolean).map((segment) => new Diff(op, segment)),
 			)
 		}
 
-		return encodedDiffs.map(({ op, text }) => new Diff(op, codec.decode(text).join(''))).filter((x) => x.text)
+		return encodedDiffs.map(({ op, text }) => new Diff(op, decode(text).join(''))).filter((x) => x.text)
 	}
 
 	/**

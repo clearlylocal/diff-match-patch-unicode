@@ -1,6 +1,6 @@
 import { AssertionError } from '@std/assert/assertion-error'
 import { assertEquals, assertThrows } from '@std/assert'
-import { SegmentCodec } from '../src/SegmentCodec.ts'
+import { SegmentCodec } from './_SegmentCodec.ts'
 
 Deno.test(SegmentCodec.name, async (t) => {
 	await t.step('happy path', () => {

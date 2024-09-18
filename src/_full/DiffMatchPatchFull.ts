@@ -1,5 +1,5 @@
-import { Diff, DiffOperation } from './Diff.ts'
-import { DiffMatchPatch } from './DiffMatchPatch.ts'
+import { Diff, DiffOperation } from '../Diff.ts'
+import { DiffMatchPatch } from '../_DiffMatchPatch.ts'
 import { Patch } from './Patch.ts'
 
 // full version (extending reduced version) - re-add props/methods that are currently unused by `Differ`

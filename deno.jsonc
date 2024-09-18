@@ -10,7 +10,7 @@
 		"./utils": "./src/utils.ts"
 	},
 	"tasks": {
-		"test": "deno test --doc src tests"
+		"test": "deno test --doc src"
 	},
 	"imports": {
 		"@clearlylocal/diff-match-patch-unicode": "./src/mod.ts",

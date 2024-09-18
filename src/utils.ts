@@ -1,5 +1,5 @@
+import { Diff, DiffOperation } from './Diff.ts'
 import { assert } from '@std/assert/assert'
-import { Diff, type DiffOperation } from './Diff.ts'
 
 /**
  * A `Diff` or a tuple of `[operation, text]` (loosely typed for convenience as an input to `makeDiff`).
@@ -20,10 +20,6 @@ export function makeDiff(d: DiffLike): Diff {
 	if (d instanceof Diff) return d
 	const [op, text] = d
 	assert(typeof text === 'string')
-	return new Diff(getOpWithAssertion(op), text)
-}
-
-function getOpWithAssertion(op: unknown): DiffOperation {
-	assert(op === -1 || op === 0 || op === 1)
-	return op
+	assert(op === DiffOperation.Delete || op === DiffOperation.Insert || op === DiffOperation.Equal)
+	return new Diff(op, text)
 }
