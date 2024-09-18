@@ -7,9 +7,9 @@ import { SegmentCodec, StringIter } from './_SegmentCodec.ts'
  * {@linkcode DiffMatchPatch} instance.
  */
 export type DiffMatchPatchConfig = {
-	[K in 'Diff_Timeout' | 'Diff_EditCost' as Uncapitalize<GetK<K>>]: DiffMatchPatch[K]
+	[K in 'Diff_Timeout' | 'Diff_EditCost' as DiffMatchPatchConfigKey<K>]: DiffMatchPatch[K]
 }
-type GetK<Type extends string> = Type extends `Diff_${infer U}` ? U : never
+type DiffMatchPatchConfigKey<Type extends string> = Type extends `Diff_${infer U}` ? Uncapitalize<U> : never
 
 /**
  * Options for methods of the {@linkcode Differ} class.
@@ -39,14 +39,27 @@ export type DiffOptions = {
 	checkLines: boolean
 }
 
-type Segmenter = SimpleSegmenter | Intl.Segmenter
-type SimpleSegmenter = (str: string) => StringIter
+type Segmenter = SegmentFunction | Intl.Segmenter
+type SegmentFunction = (str: string) => StringIter
 
 /**
  * A collection of commonly-used segmenters, suitable for use as the `segmenter` option in the {@linkcode Differ} class.
  */
-export const segmenters: Record<'char' | 'line' | 'grapheme' | 'word' | 'sentence', Segmenter> = {
-	char: (str) => str,
+export const segmenters: {
+	/** Separate by characters (Unicode code points) */
+	char: Segmenter
+	/** Separate by lines, i.e. separate on newline `\n` */
+	line: Segmenter
+	/** Separate by Unicode grapheme clusters */
+	grapheme: Segmenter
+	/** Separate by words */
+	word: Segmenter
+	/** Separate by sentences */
+	sentence: Segmenter
+} = {
+	*char(str) {
+		yield* str
+	},
 	*line(str) {
 		for (let i = 0, n = 0; i < str.length; i = n + 1) {
 			n = (str.length + str.indexOf('\n', i)) % str.length
@@ -182,7 +195,7 @@ export class Differ {
 		return this.#dmp.diff_main(before, after, checkLines, this.#deadline)
 	}
 
-	#toSegmentFn(segmenter: Segmenter): SimpleSegmenter {
+	#toSegmentFn(segmenter: Segmenter): SegmentFunction {
 		if (!(segmenter instanceof Intl.Segmenter)) {
 			return segmenter
 		}

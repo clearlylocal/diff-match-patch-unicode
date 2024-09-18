@@ -8,23 +8,23 @@ const differ = new Differ()
 Deno.test(differ.diff.name, async (t) => {
 	await t.step('chars', () => {
 		assertDiffsEqual(
-			[[-1, 'abc'], [0, 'd'], [1, 'efg']],
 			differ.diff('abcd', 'defg'),
+			[[-1, 'abc'], [0, 'd'], [1, 'efg']],
 		)
 	})
 
 	await t.step('non-BMP', async (t) => {
 		await t.step('emojis', () => {
 			assertDiffsEqual(
-				[[-1, '💫'], [1, '💩']],
 				differ.diff('💫', '💩'),
+				[[-1, '💫'], [1, '💩']],
 			)
 		})
 
 		await t.step('can opt into old code unit behavior', () => {
 			assertDiffsEqual(
-				[[0, '\ud83d'], [-1, '\udcab'], [1, '\udca9']],
 				differ.diffCodeUnits('💫', '💩'),
+				[[0, '\ud83d'], [-1, '\udcab'], [1, '\udca9']],
 			)
 
 			assertEquals(
@@ -34,23 +34,45 @@ Deno.test(differ.diff.name, async (t) => {
 		})
 	})
 
+	await t.step('graphemes', () => {
+		const before = 'กำ'
+		const after = 'ก'
+
+		assertDiffsEqual(
+			differ.diff(before, after, { segmenter: segmenters.grapheme }),
+			[[-1, 'กำ'], [1, 'ก']],
+		)
+
+		// ...compared with default `char` segmenter...
+		assertDiffsEqual(
+			differ.diff(before, after),
+			[[0, 'ก'], [-1, 'ำ']],
+		)
+	})
+
+	await t.step('sentences', () => {
+		assertDiffsEqual(
+			differ.diff(
+				'This is a sentence. This is another sentence.',
+				'This is a sentence. This is yet another sentence.',
+				{ segmenter: segmenters.sentence },
+			),
+			[[0, 'This is a sentence. '], [-1, 'This is another sentence.'], [1, 'This is yet another sentence.']],
+		)
+	})
+
 	await t.step('words', async (t) => {
 		await t.step('default word segmenter', () => {
 			assertDiffsEqual(
-				[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world!']],
 				differ.diff('Hello, world!', 'Goodbye, world!', { segmenter: segmenters.word }),
+				[[-1, 'Hello'], [1, 'Goodbye'], [0, ', world!']],
 			)
 		})
 
 		await t.step('xml', () => {
 			assertDiffsEqual(
-				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
 				differ.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
-			)
-
-			assertDiffsEqual(
 				[[0, '<book price="'], [-1, '4.99'], [1, '7.99'], [0, '" />']],
-				differ.diff('<book price="4.99" />', '<book price="7.99" />', { segmenter: segmenters.word }),
 			)
 		})
 
@@ -58,8 +80,8 @@ Deno.test(differ.diff.name, async (t) => {
 			const segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' })
 
 			assertDiffsEqual(
-				[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
 				differ.diff('两只小蜜蜂', '两只老虎', { segmenter }),
+				[[0, '两只'], [-1, '小蜜蜂'], [1, '老虎']],
 			)
 		})
 	})
@@ -69,16 +91,15 @@ Deno.test(differ.diff.name, async (t) => {
 			const segmenter = (str: string) => str.match(/\d+|./gus) ?? []
 
 			assertDiffsEqual(
-				[[-1, 'hell'], [1, 'go'], [0, 'o'], [1, 'dbye'], [0, ' '], [-1, '123'], [1, '135']],
 				differ.diff('hello 123', 'goodbye 135', { segmenter }),
+				[[-1, 'hell'], [1, 'go'], [0, 'o'], [1, 'dbye'], [0, ' '], [-1, '123'], [1, '135']],
 			)
 		})
 	})
 
-	await t.step('parity with line diff function from docs', () => {
-		// https://github.com/google/diff-match-patch/wiki/Line-or-Word-Diffs
-
+	await t.step('lines (parity with line diff function from docs)', () => {
 		function diffLineMode(text1: string, text2: string) {
+			// https://github.com/google/diff-match-patch/wiki/Line-or-Word-Diffs
 			const dmp = new DiffMatchPatchFull()
 			const { chars1, chars2, lineArray } = dmp['diff_linesToChars_'](text1, text2)
 			const diffs = dmp.diff_main(chars1, chars2, false)
@@ -91,31 +112,29 @@ Deno.test(differ.diff.name, async (t) => {
 		const str2 = '11\n12\n14\n15'
 
 		assertEquals(
-			diffLineMode(str1, str2),
 			differ.diff(str1, str2, { segmenter: segmenters.line }),
+			diffLineMode(str1, str2),
 		)
 	})
 })
 
-Deno.test(differ.diffWithin.name, async (t) => {
-	await t.step('chars', () => {
-		const text1 = `Line One\nLine Two\nLine Three\n`
-		const text2 = `Line One\nLine 2\nLine Three\nLine Four\nLine Five\n`
+Deno.test(differ.diffWithin.name, () => {
+	const text1 = `Line One\nLine Two\nLine Three\n`
+	const text2 = `Line One\nLine 2\nLine Three\nLine Four\nLine Five\n`
 
-		const diffs = differ.diff(text1, text2, { segmenter: segmenters.line, join: false })
-		const diff2d = differ.diffWithin(diffs, { segmenter: segmenters.word })
+	const diffs = differ.diff(text1, text2, { segmenter: segmenters.line, join: false })
+	const diff2d = differ.diffWithin(diffs, { segmenter: segmenters.word })
 
-		assertDiffsEqual2d(
-			diff2d,
-			[
-				[[0, 'Line One\n']],
-				[[0, 'Line '], [-1, 'Two'], [1, '2'], [0, '\n']],
-				[[0, 'Line Three\n']],
-				[[1, 'Line Four\n']],
-				[[1, 'Line Five\n']],
-			],
-		)
-	})
+	assertDiffsEqual2d(
+		diff2d,
+		[
+			[[0, 'Line One\n']],
+			[[0, 'Line '], [-1, 'Two'], [1, '2'], [0, '\n']],
+			[[0, 'Line Three\n']],
+			[[1, 'Line Four\n']],
+			[[1, 'Line Five\n']],
+		],
+	)
 })
 
 Deno.test('README', () => {
