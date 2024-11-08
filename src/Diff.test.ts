@@ -47,9 +47,10 @@ Deno.test(Diff.name, async (t) => {
 
 	await t.step('clone', () => {
 		const diff = new Diff(DiffOperation.Equal, 'a')
+		const clone = diff.clone()
 		// value-equal
-		assertEquals(diff, diff.clone())
+		assertEquals(diff, clone)
 		// not reference-equal
-		assert(diff !== diff.clone())
+		assert(diff !== clone)
 	})
 })

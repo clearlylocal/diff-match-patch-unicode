@@ -178,3 +178,35 @@ Deno.test('README', () => {
 		differ.diffCodeUnits(str1, str2),
 	)
 })
+
+Deno.test(differ.cleanupSemantic.name, async (t) => {
+	await t.step('basic', () => {
+		const before = 'Scanne fir ze verbannen, oder verbann dech manuell'
+		const after = 'Scanne fir ze verbannen oder Manuell verbannen'
+
+		const expectedUncleanuped = [
+			[0, 'Scanne fir ze verbannen'],
+			[-1, ','],
+			[0, ' oder '],
+			[-1, 'verbann'],
+			[1, 'Manuell'],
+			[0, ' '],
+			[-1, 'dech manuell'],
+			[1, 'verbannen'],
+		]
+
+		const expectedCleanuped = [
+			[0, 'Scanne fir ze verbannen'],
+			[-1, ','],
+			[0, ' oder '],
+			[-1, 'verbann dech manuell'],
+			[1, 'Manuell verbannen'],
+		]
+
+		const uncleanuped = differ.diff(before, after, { segmenter: segmenters.word })
+		assertDiffsEqual(uncleanuped, expectedUncleanuped)
+
+		const cleanuped = differ.cleanupSemantic(uncleanuped)
+		assertDiffsEqual(cleanuped, expectedCleanuped)
+	})
+})

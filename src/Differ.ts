@@ -57,10 +57,10 @@ export const segmenters: {
 	/** Separate by sentences */
 	sentence: Segmenter
 } = {
-	*char(str) {
+	*char(str): Generator<string> {
 		yield* str
 	},
-	*line(str) {
+	*line(str): Generator<string> {
 		for (let i = 0, n = 0; i < str.length; i = n + 1) {
 			n = (str.length + str.indexOf('\n', i)) % str.length
 			yield str.slice(i, n + 1)
@@ -170,6 +170,16 @@ export class Differ {
 	}
 
 	/**
+	 * Cleanup function to increase human readability by factoring out commonalities which are likely to be
+	 * coincidental.
+	 */
+	cleanupSemantic(diffs: Diff[]): Diff[] {
+		const out = [...diffs].map((x) => x.clone())
+		this.#dmp.diff_cleanupSemantic(out)
+		return out
+	}
+
+	/**
 	 * Diff two strings by UTF-16 code unit. May not work as expected for non-BMP characters. This is simply a wrapper
 	 * around diff-match-patch's `diff_main`, which may be a preferable way to create char diffs compared to
 	 * {@linkcode diff} where full Unicode support is not critical and in performance-sensitive scenarios.
@@ -200,7 +210,7 @@ export class Differ {
 			return segmenter
 		}
 
-		return function* (str) {
+		return function* (str): Generator<string> {
 			for (const s of segmenter.segment(str)) {
 				yield s.segment
 			}
